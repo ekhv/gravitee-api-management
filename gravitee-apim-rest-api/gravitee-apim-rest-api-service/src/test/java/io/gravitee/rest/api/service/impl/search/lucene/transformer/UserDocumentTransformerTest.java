@@ -36,4 +36,18 @@ public class UserDocumentTransformerTest {
         Document doc = transformer.transform(user);
         assertThat(doc.get("id")).isEqualTo(user.getId());
     }
+
+    @Test
+    public void should_transform_for_delete() {
+        UserEntity user = new UserEntity();
+        user.setId("user-uuid");
+        user.setFirstname("Firstname");
+        user.setLastname("Lastname");
+
+        Document doc = transformer.transformForDelete(user);
+
+        assertThat(doc.getFields().size()).isEqualTo(2);
+        assertThat(doc.get("id")).isEqualTo(user.getId());
+        assertThat(doc.get("type")).isEqualTo("user");
+    }
 }

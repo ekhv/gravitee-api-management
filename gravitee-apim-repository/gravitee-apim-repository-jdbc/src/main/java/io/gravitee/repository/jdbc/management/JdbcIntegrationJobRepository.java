@@ -57,6 +57,27 @@ public class JdbcIntegrationJobRepository extends JdbcAbstractCrudRepository<Int
     }
 
     @Override
+    public List<String> deleteByEnvironmentId(String environmentId) throws TechnicalException {
+        LOGGER.debug("JdbcIntegrationJobRepository.deleteByEnvironmentId({})", environmentId);
+        try {
+            final var rows = jdbcTemplate.queryForList(
+                "select id from " + tableName + " where environment_id = ?",
+                String.class,
+                environmentId
+            );
+
+            jdbcTemplate.update("delete from " + tableName + " where environment_id = ?", environmentId);
+
+            LOGGER.debug("JdbcIntegrationJobRepository.deleteByEnvironmentId({}) - Done", environmentId);
+            return rows;
+        } catch (final Exception ex) {
+            final String message = "Failed to find integrations jobs of environment: " + environmentId;
+            LOGGER.error(message, ex);
+            throw new TechnicalException(message, ex);
+        }
+    }
+
+    @Override
     protected String getId(IntegrationJob item) {
         return item.getId();
     }

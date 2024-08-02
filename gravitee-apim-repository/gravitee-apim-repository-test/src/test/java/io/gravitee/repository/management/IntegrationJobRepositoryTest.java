@@ -121,6 +121,25 @@ public class IntegrationJobRepositoryTest extends AbstractManagementRepositoryTe
         assertThat(integrationJobRepository.findPendingJobFor("unknown")).isNotPresent();
     }
 
+    @Test
+    public void should_delete_by_environment_id() throws TechnicalException {
+        long nbBeforeDeletion = integrationJobRepository
+            .findAll()
+            .stream()
+            .filter(job -> "ToBeDeleted".equals(job.getEnvironmentId()))
+            .count();
+        int deleted = integrationJobRepository.deleteByEnvironmentId("ToBeDeleted").size();
+        long nbAfterDeletion = integrationJobRepository
+            .findAll()
+            .stream()
+            .filter(job -> "ToBeDeleted".equals(job.getEnvironmentId()))
+            .count();
+
+        assertThat(nbBeforeDeletion).isEqualTo(2L);
+        assertThat(deleted).isEqualTo(2);
+        assertThat(nbAfterDeletion).isEqualTo(0);
+    }
+
     private static IntegrationJob aJob(String uuid, Date date) {
         return IntegrationJob
             .builder()

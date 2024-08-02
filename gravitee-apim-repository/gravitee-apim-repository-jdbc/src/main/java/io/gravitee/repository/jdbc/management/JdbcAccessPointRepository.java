@@ -133,7 +133,7 @@ public class JdbcAccessPointRepository extends JdbcAbstractCrudRepository<Access
     }
 
     @Override
-    public List<AccessPoint> deleteByReference(final AccessPointReferenceType referenceType, final String referenceId)
+    public List<AccessPoint> deleteByReferenceIdAndReferenceType(final String referenceId, final AccessPointReferenceType referenceType)
         throws TechnicalException {
         try {
             List<AccessPoint> accessPoints = jdbcTemplate.query(

@@ -21,6 +21,7 @@ import io.gravitee.repository.management.api.IntegrationRepository;
 import io.gravitee.repository.management.api.search.Pageable;
 import io.gravitee.repository.management.model.Integration;
 import io.gravitee.repository.mongodb.management.internal.integration.IntegrationMongoRepository;
+import io.gravitee.repository.mongodb.management.internal.model.GroupMongo;
 import io.gravitee.repository.mongodb.management.internal.model.IntegrationMongo;
 import io.gravitee.repository.mongodb.management.mapper.GraviteeMapper;
 import java.util.List;
@@ -101,6 +102,19 @@ public class MongoIntegrationRepository implements IntegrationRepository {
 
         logger.debug("Search by environment ID [{}] - Done", environmentId);
         return new Page<>(content, integrations.getPageNumber(), (int) integrations.getPageElements(), integrations.getTotalElements());
+    }
+
+    @Override
+    public List<String> deleteByEnvironmentId(String environmentId) throws TechnicalException {
+        logger.debug("Delete integration by environmentId: {}", environmentId);
+        try {
+            List<String> all = internalRepository.deleteByEnvironmentId(environmentId).stream().map(IntegrationMongo::getId).toList();
+            logger.debug("Delete integration by environment - Done {}", all);
+            return all;
+        } catch (Exception ex) {
+            logger.error("Failed to delete integration by environmentId: {}", environmentId, ex);
+            throw new TechnicalException("Failed to delete integration by environmentId");
+        }
     }
 
     private Integration map(IntegrationMongo integrationMongo) {

@@ -17,8 +17,11 @@ package io.gravitee.repository.management.api;
 
 import io.gravitee.repository.exceptions.TechnicalException;
 import io.gravitee.repository.management.model.IntegrationJob;
+import java.util.List;
 import java.util.Optional;
 
 public interface IntegrationJobRepository extends CrudRepository<IntegrationJob, String> {
     Optional<IntegrationJob> findPendingJobFor(String integrationId) throws TechnicalException;
+
+    List<String> deleteByEnvironmentId(String environmentId) throws TechnicalException;
 }

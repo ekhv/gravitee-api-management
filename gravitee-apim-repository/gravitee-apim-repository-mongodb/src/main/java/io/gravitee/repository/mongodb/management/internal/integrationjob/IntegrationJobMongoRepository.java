@@ -16,6 +16,7 @@
 package io.gravitee.repository.mongodb.management.internal.integrationjob;
 
 import io.gravitee.repository.mongodb.management.internal.model.IntegrationJobMongo;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
@@ -25,4 +26,7 @@ import org.springframework.stereotype.Repository;
 public interface IntegrationJobMongoRepository extends MongoRepository<IntegrationJobMongo, String> {
     @Query("{ sourceId: ?0, status: 'PENDING' }")
     Optional<IntegrationJobMongo> findPendingJobFor(String sourceId);
+
+    @Query(value = "{ environmentId: ?0 }", fields = "{ _id : 1 }", delete = true)
+    List<IntegrationJobMongo> deleteByEnvironmentId(String environmentId);
 }

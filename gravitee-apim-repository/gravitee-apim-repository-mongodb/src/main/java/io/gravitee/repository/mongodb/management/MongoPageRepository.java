@@ -193,6 +193,23 @@ public class MongoPageRepository implements PageRepository {
         }
     }
 
+    @Override
+    public List<String> deleteByReferenceIdAndReferenceType(String referenceId, PageReferenceType referenceType) throws TechnicalException {
+        logger.debug("Delete pages by refId: {}/{}", referenceId, referenceType);
+        try {
+            final var pageMongos = internalPageRepo
+                .deleteByReferenceIdAndReferenceType(referenceId, referenceType.name())
+                .stream()
+                .map(PageMongo::getId)
+                .toList();
+            logger.debug("Delete pages by refId: {}/{}", referenceId, referenceType);
+            return pageMongos;
+        } catch (Exception e) {
+            logger.error("Failed to delete page by refId: {}/{}", referenceId, referenceType, e);
+            throw new TechnicalException("Failed to delete page by reference");
+        }
+    }
+
     private PageSourceMongo convert(PageSource pageSource) {
         PageSourceMongo pageSourceMongo = new PageSourceMongo();
         pageSourceMongo.setType(pageSource.getType());

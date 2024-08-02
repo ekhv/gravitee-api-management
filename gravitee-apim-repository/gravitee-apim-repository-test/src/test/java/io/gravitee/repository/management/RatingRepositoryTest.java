@@ -225,4 +225,26 @@ public class RatingRepositoryTest extends AbstractManagementRepositoryTest {
         ratingAnswerRepository.delete("answer-id");
         assertFalse("Rating answer not deleted", ratingAnswerRepository.findById("answer-id").isPresent());
     }
+
+    @Test
+    public void should_delete_by_reference_id_and_reference_type() throws Exception {
+        int nbBeforeDeletion = ratingRepository.findByReferenceIdAndReferenceType("ToBeDeleted", RatingReferenceType.API).size();
+        List<String> deleted = ratingRepository.deleteByReferenceIdAndReferenceType("ToBeDeleted", RatingReferenceType.API);
+        int nbAfterDeletion = ratingRepository.findByReferenceIdAndReferenceType("ToBeDeleted", RatingReferenceType.API).size();
+
+        assertEquals(2, nbBeforeDeletion);
+        assertEquals(2, deleted.size());
+        assertEquals(0, nbAfterDeletion);
+    }
+
+    @Test
+    public void should_delete_answer_by_rating() throws Exception {
+        int nbBeforeDeletion = ratingAnswerRepository.findByRating("ToBeDeleted").size();
+        List<String> deleted = ratingAnswerRepository.deleteByRating("ToBeDeleted");
+        int nbAfterDeletion = ratingAnswerRepository.findByRating("ToBeDeleted").size();
+
+        assertEquals(2, nbBeforeDeletion);
+        assertEquals(2, deleted.size());
+        assertEquals(0, nbAfterDeletion);
+    }
 }

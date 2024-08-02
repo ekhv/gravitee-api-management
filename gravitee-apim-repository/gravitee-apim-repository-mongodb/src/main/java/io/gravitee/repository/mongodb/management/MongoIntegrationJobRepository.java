@@ -19,7 +19,9 @@ import io.gravitee.repository.exceptions.TechnicalException;
 import io.gravitee.repository.management.api.IntegrationJobRepository;
 import io.gravitee.repository.management.model.IntegrationJob;
 import io.gravitee.repository.mongodb.management.internal.integrationjob.IntegrationJobMongoRepository;
+import io.gravitee.repository.mongodb.management.internal.model.IntegrationJobMongo;
 import io.gravitee.repository.mongodb.management.mapper.GraviteeMapper;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -85,5 +87,18 @@ public class MongoIntegrationJobRepository implements IntegrationJobRepository {
     @Override
     public Optional<IntegrationJob> findPendingJobFor(String sourceId) {
         return internalRepository.findPendingJobFor(sourceId).map(source -> mapper.map(source));
+    }
+
+    @Override
+    public List<String> deleteByEnvironmentId(String environmentId) throws TechnicalException {
+        log.debug("Delete integration jobs by environmentId: {}", environmentId);
+        try {
+            List<String> all = internalRepository.deleteByEnvironmentId(environmentId).stream().map(IntegrationJobMongo::getId).toList();
+            log.debug("Delete integration jobs by environment - Done {}", all);
+            return all;
+        } catch (Exception ex) {
+            log.error("Failed to delete integration jobs by environmentId: {}", environmentId, ex);
+            throw new TechnicalException("Failed to delete integration jobs by environmentId");
+        }
     }
 }

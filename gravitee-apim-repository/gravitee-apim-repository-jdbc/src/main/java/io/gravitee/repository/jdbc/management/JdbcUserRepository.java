@@ -189,4 +189,24 @@ public class JdbcUserRepository extends JdbcAbstractCrudRepository<User, String>
             throw new TechnicalException("Failed to find all " + getOrm().getTableName() + " items", ex);
         }
     }
+
+    @Override
+    public List<String> deleteByOrganizationId(String organizationId) throws TechnicalException {
+        LOGGER.debug("JdbcUserRepository.deleteByOrganizationId({})", organizationId);
+        try {
+            final var users = jdbcTemplate.queryForList(
+                "select id from " + tableName + " where organization_id = ?",
+                String.class,
+                organizationId
+            );
+
+            jdbcTemplate.update("delete from " + tableName + " where organization_id = ?", organizationId);
+
+            LOGGER.debug("JdbcUserRepository.deleteByOrganizationId({}) - Done", organizationId);
+            return users;
+        } catch (final Exception ex) {
+            LOGGER.error("Failed to delete user by organization", ex);
+            throw new TechnicalException("Failed to delete user by organization", ex);
+        }
+    }
 }

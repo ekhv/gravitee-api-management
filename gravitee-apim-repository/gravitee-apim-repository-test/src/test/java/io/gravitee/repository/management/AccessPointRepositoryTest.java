@@ -181,7 +181,7 @@ public class AccessPointRepositoryTest extends AbstractManagementRepositoryTest 
         Optional<AccessPoint> optionalCreated = accessPointRepository.findById("id2");
         assertTrue("AccessPoint not found", optionalCreated.isPresent());
 
-        accessPointRepository.deleteByReference(AccessPointReferenceType.ENVIRONMENT, "referenceId2");
+        accessPointRepository.deleteByReferenceIdAndReferenceType("referenceId2", AccessPointReferenceType.ENVIRONMENT);
 
         Optional<AccessPoint> optionalDeleted = accessPointRepository.findById("id2");
         assertFalse("AccessPoint not deleted", optionalDeleted.isPresent());

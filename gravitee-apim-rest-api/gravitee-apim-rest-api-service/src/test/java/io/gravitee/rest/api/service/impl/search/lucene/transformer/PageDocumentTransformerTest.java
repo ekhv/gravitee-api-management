@@ -15,6 +15,8 @@
  */
 package io.gravitee.rest.api.service.impl.search.lucene.transformer;
 
+import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_ID;
+import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.gravitee.rest.api.model.PageEntity;
@@ -35,5 +37,17 @@ public class PageDocumentTransformerTest {
         page.setId("page-uuid");
         Document doc = transformer.transform(page);
         assertThat(doc.get("id")).isEqualTo(page.getId());
+    }
+
+    @Test
+    public void should_transform_for_delete() {
+        PageEntity page = new PageEntity();
+        page.setId("page-uuid");
+        page.setContent("Content");
+        Document doc = transformer.transformForDelete(page);
+
+        assertThat(doc.getFields().size()).isEqualTo(2);
+        assertThat(doc.get("id")).isEqualTo(page.getId());
+        assertThat(doc.get("type")).isEqualTo("page");
     }
 }

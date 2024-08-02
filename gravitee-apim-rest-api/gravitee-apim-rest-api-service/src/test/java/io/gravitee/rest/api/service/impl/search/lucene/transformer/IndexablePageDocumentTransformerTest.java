@@ -15,14 +15,23 @@
  */
 package io.gravitee.rest.api.service.impl.search.lucene.transformer;
 
+import static fixtures.core.model.ApiFixtures.MY_API;
+import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_ID;
+import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import fixtures.core.model.ApiFixtures;
 import io.gravitee.apim.core.documentation.model.Page;
+import io.gravitee.apim.core.search.model.IndexableApi;
 import io.gravitee.apim.core.search.model.IndexablePage;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,6 +50,17 @@ public class IndexablePageDocumentTransformerTest {
     @Test
     void should_transform() {
         assertThat(cut.transform(given())).usingRecursiveComparison().isEqualTo(expected());
+    }
+
+    @Test
+    void should_transform_for_delete() {
+        var result = cut.transformForDelete(given());
+
+        SoftAssertions.assertSoftly(softly -> {
+            softly.assertThat(result.getFields()).hasSize(2);
+            softly.assertThat(result.getField(FIELD_ID).stringValue()).isEqualTo(PAGE_ID);
+            softly.assertThat(result.getField(FIELD_TYPE).stringValue()).isEqualTo("page");
+        });
     }
 
     private static IndexablePage given() {

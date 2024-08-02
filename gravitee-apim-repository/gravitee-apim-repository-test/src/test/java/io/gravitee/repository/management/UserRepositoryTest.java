@@ -146,7 +146,7 @@ public class UserRepositoryTest extends AbstractManagementRepositoryTest {
             .getContent();
 
         assertNotNull(users);
-        assertEquals("Invalid user numbers in search", 9, users.size());
+        assertEquals("Invalid user numbers in search", 11, users.size());
         assertEquals("user0", users.get(0).getId());
         assertEquals("user1", users.get(1).getId());
         assertEquals("user3", users.get(2).getId());
@@ -156,6 +156,8 @@ public class UserRepositoryTest extends AbstractManagementRepositoryTest {
         assertEquals("id2update", users.get(6).getId());
         assertEquals("idSpecialChar", users.get(7).getId());
         assertEquals("user2delete", users.get(8).getId());
+        assertEquals("user3delete", users.get(9).getId());
+        assertEquals("user4delete", users.get(10).getId());
     }
 
     @Test
@@ -222,7 +224,7 @@ public class UserRepositoryTest extends AbstractManagementRepositoryTest {
             .getContent();
 
         Assert.assertNotNull(users);
-        assertEquals("Invalid user numbers in find active", 7, users.size());
+        assertEquals("Invalid user numbers in find active", 9, users.size());
     }
 
     @Test
@@ -267,5 +269,28 @@ public class UserRepositoryTest extends AbstractManagementRepositoryTest {
         assertTrue("user2delete exists", userRepository.findById("user2delete").isPresent());
         userRepository.delete("user2delete");
         assertFalse("user2delete not exists", userRepository.findById("user2delete").isPresent());
+    }
+
+    @Test
+    public void should_delete_by_organization_id() throws Exception {
+        long nbUsersBeforeDelete = userRepository
+            .search(
+                new UserCriteria.Builder().organizationId("ToBeDeleted").build(),
+                new PageableBuilder().pageNumber(0).pageSize(Integer.MAX_VALUE).build()
+            )
+            .getTotalElements();
+
+        List<String> deleted = userRepository.deleteByOrganizationId("ToBeDeleted");
+
+        long nbUsersAfterDelete = userRepository
+            .search(
+                new UserCriteria.Builder().organizationId("ToBeDeleted").build(),
+                new PageableBuilder().pageNumber(0).pageSize(Integer.MAX_VALUE).build()
+            )
+            .getTotalElements();
+        assertEquals(2, nbUsersBeforeDelete);
+        assertNotNull(deleted);
+        assertEquals(2, deleted.size());
+        assertEquals(0, nbUsersAfterDelete);
     }
 }

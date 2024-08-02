@@ -458,4 +458,24 @@ public class ApiKeyRepositoryTest extends AbstractManagementRepositoryTest {
         Optional<ApiKey> updatedApiKey = apiKeyRepository.addSubscription("unknown_apikey_id", "newSubscription");
         assertTrue(updatedApiKey.isEmpty());
     }
+
+    @Test
+    public void should_delete_by_environment_id() throws TechnicalException {
+        final var nbBeforeDeletion = apiKeyRepository
+            .findAll()
+            .stream()
+            .filter(apiKey -> "DEFAULT".equals(apiKey.getEnvironmentId()))
+            .count();
+
+        var deleted = apiKeyRepository.deleteByEnvironmentId("DEFAULT").size();
+        final var nbAfterDeletion = apiKeyRepository
+            .findAll()
+            .stream()
+            .filter(apiKey -> "DEFAULT".equals(apiKey.getEnvironmentId()))
+            .count();
+
+        assertEquals(3, nbBeforeDeletion);
+        assertEquals(3, deleted);
+        assertEquals(0, nbAfterDeletion);
+    }
 }

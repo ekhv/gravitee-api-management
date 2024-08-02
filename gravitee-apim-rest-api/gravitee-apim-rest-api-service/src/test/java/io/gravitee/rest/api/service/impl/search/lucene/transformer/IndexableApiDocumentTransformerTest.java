@@ -15,6 +15,7 @@
  */
 package io.gravitee.rest.api.service.impl.search.lucene.transformer;
 
+import static fixtures.core.model.ApiFixtures.MY_API;
 import static io.gravitee.rest.api.service.impl.search.lucene.DocumentTransformer.FIELD_REFERENCE_ID;
 import static io.gravitee.rest.api.service.impl.search.lucene.DocumentTransformer.FIELD_REFERENCE_TYPE;
 import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_CATEGORIES;
@@ -243,6 +244,26 @@ public class IndexableApiDocumentTransformerTest {
                 .assertThat(result.getFields(FIELD_CATEGORIES_SPLIT))
                 .extracting(IndexableField::stringValue)
                 .contains("Category1", "Category2");
+        });
+    }
+
+    @Test
+    void should_transform_for_delete() {
+        // Given
+        var indexable = new IndexableApi(
+            ApiFixtures.aProxyApiV4().toBuilder().labels(List.of("Label1, Label2")).build(),
+            PRIMARY_OWNER,
+            Map.of(),
+            Set.of("category1", "category2")
+        );
+        // When
+        var result = cut.transformForDelete(indexable);
+
+        // Then
+        SoftAssertions.assertSoftly(softly -> {
+            softly.assertThat(result.getFields()).hasSize(2);
+            softly.assertThat(result.getField(FIELD_ID).stringValue()).isEqualTo(MY_API);
+            softly.assertThat(result.getField(FIELD_TYPE).stringValue()).isEqualTo("api");
         });
     }
 }
