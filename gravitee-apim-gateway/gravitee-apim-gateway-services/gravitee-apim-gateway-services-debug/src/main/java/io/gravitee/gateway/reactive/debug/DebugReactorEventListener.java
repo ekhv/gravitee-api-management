@@ -35,6 +35,7 @@ import io.gravitee.gateway.reactor.impl.ReactableEvent;
 import io.gravitee.repository.exceptions.TechnicalException;
 import io.gravitee.repository.management.api.EventRepository;
 import io.gravitee.repository.management.model.ApiDebugStatus;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpMethod;
@@ -42,6 +43,7 @@ import io.vertx.core.http.RequestOptions;
 import io.vertx.core.http.impl.headers.HeadersMultiMap;
 import io.vertx.core.net.OpenSSLEngineOptions;
 import io.vertx.rxjava3.core.Vertx;
+import io.vertx.rxjava3.core.http.HttpClient;
 import java.security.GeneralSecurityException;
 import java.util.Date;
 import java.util.List;
@@ -57,12 +59,15 @@ public class DebugReactorEventListener extends ReactorEventListener {
 
     private final Logger logger = LoggerFactory.getLogger(DebugReactorEventListener.class);
     private final Vertx vertx;
-    private final EventManager eventManager;
     private final EventRepository eventRepository;
     private final ObjectMapper objectMapper;
     private final VertxDebugHttpClientConfiguration debugHttpClientConfiguration;
+<<<<<<< HEAD
     private final ReactorHandlerRegistry reactorHandlerRegistry;
     private final OrganizationManager organizationManager;
+=======
+    private final AccessPointManager accessPointManager;
+>>>>>>> 3ff0888fec (fix: make sure debug does not block the eventloop)
     private final DataEncryptor dataEncryptor;
 
     public DebugReactorEventListener(
@@ -77,12 +82,15 @@ public class DebugReactorEventListener extends ReactorEventListener {
     ) {
         super(eventManager, reactorHandlerRegistry);
         this.vertx = vertx;
-        this.eventManager = eventManager;
         this.eventRepository = eventRepository;
         this.objectMapper = objectMapper;
         this.debugHttpClientConfiguration = debugHttpClientConfiguration;
+<<<<<<< HEAD
         this.reactorHandlerRegistry = reactorHandlerRegistry;
         this.organizationManager = organizationManager;
+=======
+        this.accessPointManager = accessPointManager;
+>>>>>>> 3ff0888fec (fix: make sure debug does not block the eventloop)
         this.dataEncryptor = dataEncryptor;
     }
 
@@ -107,8 +115,9 @@ public class DebugReactorEventListener extends ReactorEventListener {
                     updateEvent(debugEvent, ApiDebugStatus.DEBUGGING);
 
                     logger.info("Sending request to debug");
-                    vertx
-                        .createHttpClient(buildClientOptions())
+                    HttpClient httpClient = vertx.createHttpClient(buildClientOptions());
+
+                    httpClient
                         .rxRequest(
                             new RequestOptions()
                                 .setMethod(HttpMethod.valueOf(debugApiRequest.getMethod()))
@@ -128,6 +137,8 @@ public class DebugReactorEventListener extends ReactorEventListener {
                         )
                         .doOnSuccess(httpClientResponse -> logger.debug("Response status: {}", httpClientResponse.statusCode()))
                         .flatMap(io.vertx.rxjava3.core.http.HttpClientResponse::rxBody)
+                        .doFinally(httpClient::close)
+                        .subscribeOn(Schedulers.io())
                         .subscribe(
                             body -> {
                                 logger.info("Debugging successful, removing the handler.");
@@ -179,18 +190,6 @@ public class DebugReactorEventListener extends ReactorEventListener {
             failEvent(event);
             return null;
         }
-    }
-
-    @Override
-    protected void doStart() throws Exception {
-        super.doStart();
-        eventManager.subscribeForEvents(this, ReactorEvent.class);
-    }
-
-    @Override
-    protected void doStop() throws Exception {
-        super.doStop();
-        reactorHandlerRegistry.clear();
     }
 
     private HttpClientOptions buildClientOptions() {
