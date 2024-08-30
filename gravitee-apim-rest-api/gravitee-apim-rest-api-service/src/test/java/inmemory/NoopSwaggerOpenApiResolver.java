@@ -15,9 +15,13 @@
  */
 package inmemory;
 
+import io.gravitee.apim.core.api.model.Api;
 import io.gravitee.apim.core.documentation.domain_service.OpenApiDomainService;
 import io.gravitee.apim.core.documentation.exception.InvalidPageContentException;
+import io.gravitee.apim.core.documentation.model.Page;
+import io.gravitee.rest.api.service.common.ExecutionContext;
 import io.gravitee.rest.api.service.impl.swagger.parser.OAIParser;
+import java.util.Map;
 
 /**
  * @author Kamiel Ahmadpour (kamiel.ahmadpour at graviteesource.com)
@@ -35,5 +39,10 @@ public class NoopSwaggerOpenApiResolver implements OpenApiDomainService {
                 throw new InvalidPageContentException("Invalid Open Api content " + e.getMessage(), e);
             }
         }
+    }
+
+    @Override
+    public String transformOpenApiContent(ExecutionContext executionContext, Map<String, String> configuration, String content, Api api) {
+        return "";
     }
 }

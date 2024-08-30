@@ -15,9 +15,18 @@
  */
 package io.gravitee.apim.infra.domain_service.documentation;
 
+import io.gravitee.apim.core.api.model.Api;
 import io.gravitee.apim.core.documentation.domain_service.OpenApiDomainService;
 import io.gravitee.apim.core.documentation.exception.InvalidPageContentException;
+import io.gravitee.apim.core.documentation.model.Page;
+import io.gravitee.apim.infra.adapter.ApiAdapter;
+import io.gravitee.apim.infra.adapter.PageAdapter;
+import io.gravitee.rest.api.model.PageEntity;
+import io.gravitee.rest.api.service.PageService;
+import io.gravitee.rest.api.service.common.ExecutionContext;
 import io.gravitee.rest.api.service.impl.swagger.parser.OAIParser;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
@@ -25,7 +34,10 @@ import org.springframework.stereotype.Service;
  * @author GraviteeSource Team
  */
 @Service
-public class SwaggerOpenApiParser implements OpenApiDomainService {
+@RequiredArgsConstructor
+public class SwaggerOpenApiResolver implements OpenApiDomainService {
+
+    private final PageService pageServiceDelegate;
 
     @Override
     public void parseOpenApiContent(String content) throws InvalidPageContentException {
@@ -37,5 +49,19 @@ public class SwaggerOpenApiParser implements OpenApiDomainService {
                 throw new InvalidPageContentException("Invalid Open Api content " + e.getMessage(), e);
             }
         }
+    }
+
+    @Override
+    public String transformOpenApiContent(ExecutionContext executionContext, Map<String, String> configuration, String content, Api api) {
+        // TODO: Decide if v2 apis are supported
+        var apiEntity = ApiAdapter.INSTANCE.toApiEntity(api);
+
+        var pageEntity = new PageEntity();
+        pageEntity.setContent(content);
+        pageEntity.setConfiguration(configuration);
+
+        pageServiceDelegate.transformSwagger(executionContext, pageEntity, apiEntity);
+
+        return pageEntity.getContent();
     }
 }

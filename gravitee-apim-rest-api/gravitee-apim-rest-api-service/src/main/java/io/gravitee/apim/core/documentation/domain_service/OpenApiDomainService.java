@@ -15,7 +15,11 @@
  */
 package io.gravitee.apim.core.documentation.domain_service;
 
+import io.gravitee.apim.core.api.model.Api;
 import io.gravitee.apim.core.documentation.exception.InvalidPageContentException;
+import io.gravitee.apim.core.documentation.model.Page;
+import io.gravitee.rest.api.service.common.ExecutionContext;
+import java.util.Map;
 
 /**
  * @author Kamiel Ahmadpour (kamiel.ahmadpour at graviteesource.com)
@@ -23,4 +27,5 @@ import io.gravitee.apim.core.documentation.exception.InvalidPageContentException
  */
 public interface OpenApiDomainService {
     void parseOpenApiContent(String content) throws InvalidPageContentException;
+    String transformOpenApiContent(ExecutionContext executionContext, Map<String, String> configuration, String content, Api api);
 }

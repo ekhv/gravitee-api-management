@@ -22,10 +22,12 @@ import io.gravitee.apim.core.documentation.crud_service.PageCrudService;
 import io.gravitee.apim.core.documentation.domain_service.ApiDocumentationDomainService;
 import io.gravitee.apim.core.documentation.domain_service.DocumentationValidationDomainService;
 import io.gravitee.apim.core.documentation.domain_service.HomepageDomainService;
+import io.gravitee.apim.core.documentation.domain_service.OpenApiDomainService;
 import io.gravitee.apim.core.documentation.domain_service.UpdateApiDocumentationDomainService;
 import io.gravitee.apim.core.documentation.model.AccessControl;
 import io.gravitee.apim.core.documentation.model.Page;
 import io.gravitee.apim.core.documentation.query_service.PageQueryService;
+import io.gravitee.rest.api.service.common.ExecutionContext;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +46,7 @@ public class ApiUpdateDocumentationPageUseCase {
     private final PageCrudService pageCrudService;
     private final PageQueryService pageQueryService;
     private final DocumentationValidationDomainService documentationValidationDomainService;
+    private final OpenApiDomainService openApiDomainService;
 
     public Output execute(Input input) {
         var api = this.apiCrudService.get(input.apiId);
@@ -64,7 +67,11 @@ public class ApiUpdateDocumentationPageUseCase {
             newPage.content(input.content);
         } else if (oldPage.isSwagger() && !Objects.equals(oldPage.getContent(), input.content)) {
             this.documentationValidationDomainService.parseOpenApiContent(input.content);
-            newPage.content(input.content);
+            // TODO: Pass Execution context
+            // TODO: Add configuration to input
+            var transformedContent =
+                this.openApiDomainService.transformOpenApiContent(new ExecutionContext(), oldPage.getConfiguration(), input.content, api);
+            newPage.content(transformedContent);
         } else if (oldPage.isAsyncApi() && !Objects.equals(oldPage.getContent(), input.content)) {
             newPage.content(input.content);
         }
