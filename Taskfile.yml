@@ -8,35 +8,60 @@ vars:
 env:
   TAG: "{{.TAG}}"
 
+
 tasks:
   mvn:
     desc: "Build"
     cmds:
       - |
-        mvn clean install --no-transfer-progress --update-snapshots -DskipTests -Dskip.validation=true -T 2C
-        mkdir -p ./gateway-docker-context/distribution
-        mkdir -p ./rest-api-docker-context/distribution
-        cp -r ./gravitee-apim-rest-api/gravitee-apim-rest-api-standalone/gravitee-apim-rest-api-standalone-distribution/target/distribution ./rest-api-docker-context/.
-        cp -r ./gravitee-apim-gateway/gravitee-apim-gateway-standalone/gravitee-apim-gateway-standalone-distribution/target/distribution ./gateway-docker-context/.
+        mvn clean install --update-snapshots -DskipTests -Dskip.validation=true -T 2C
+        if [ -d ./management-api ];then rm -r ./management-api;fi
+        mkdir -p ./management-api/distribution
+        if [ -d ./gateway ];then rm -r ./gateway;fi
+        mkdir -p ./gateway/distribution
+        cp -r ./gravitee-apim-rest-api/gravitee-apim-rest-api-standalone/gravitee-apim-rest-api-standalone-distribution/target/distribution ./management-api/.
+        cp -r ./gravitee-apim-gateway/gravitee-apim-gateway-standalone/gravitee-apim-gateway-standalone-distribution/target/distribution ./gateway/.
+
+  zip-mvn:
+    desc: "Create mvn zip"
+    cmds:
+      - zip -r management-api-$TAG.zip ./management-api/.
+      - zip -r gateway-$TAG.zip ./gateway/.
+
 
   portal-ui:
     desc: "Build portal-ui"
     dir: 'gravitee-apim-portal-webui'
     cmds:
-      - npm install --prefer-offline --no-audit
-      - npm run build:prod
+      - |
+        npm install --prefer-offline --no-audit
+        npm run build:prod
+        if [ -d ../portal-ui ];then rm -r ../portal-ui;fi
+        mkdir -p ../portal-ui/dist
+        cp -r ../gravitee-apim-portal-webui/dist ../portal-ui/.
+
 
   management-ui:
     desc: "Build management-ui"
     dir: 'gravitee-apim-console-webui'
     cmds:
-      - npm install --prefer-offline --no-audit --legacy-peer-deps
-      - npm run build:prod
+      - |
+        npm install --prefer-offline --no-audit --legacy-peer-deps
+        npm run build:prod
+        if [ -d ../management-ui ];then rm -r ../management-ui;fi
+        mkdir -p ../management-ui/dist
+        cp -r ../gravitee-apim-console-webui/dist ../management-ui/.
     env:
       NODE_OPTIONS: "--openssl-legacy-provider"
 
   npm:
     deps: [ portal-ui,  management-ui ]
+
+  zip-npm:
+    desc: "Create npm zip"
+    cmds:
+      - zip -r portal-ui-$TAG.zip ./portal-ui/.
+      - zip -r management-ui-$TAG.zip ./management-ui/.
 
   docker-gateway:
     desc: "Build Docker gateway"
@@ -44,7 +69,7 @@ tasks:
       - |
         docker buildx build -f gravitee-apim-gateway/docker/Dockerfile \
         -t gateway:$TAG \
-        gateway-docker-context
+        gateway
 
   docker-management-api:
     desc: "Build Docker management-api"
@@ -52,7 +77,7 @@ tasks:
       - |
         docker buildx build -f gravitee-apim-rest-api/docker/Dockerfile \
         -t management-api:$TAG \
-        rest-api-docker-context
+        management-api
 
   docker-management-ui:
     desc: "Build Docker management-ui"
@@ -69,5 +94,9 @@ tasks:
   build-sources:
     deps: [ mvn, npm ]
 
+  zip:
+    deps: [ zip-mvn, zip-npm ]
+
   build-docker:
+    desc: "Build all 🐳 images"
     deps: [ docker-gateway,  docker-management-api, docker-management-ui, docker-portal-ui  ]
