@@ -40,6 +40,7 @@ import io.gravitee.rest.api.management.v2.rest.resource.installation.Environment
 import io.gravitee.rest.api.management.v2.rest.resource.installation.GraviteeLicenseResource;
 import io.gravitee.rest.api.management.v2.rest.resource.installation.OrganizationResource;
 import io.gravitee.rest.api.management.v2.rest.resource.integration.IntegrationsResource;
+import io.gravitee.rest.api.management.v2.rest.resource.kafka_ui.KafkaUIResource;
 import io.gravitee.rest.api.management.v2.rest.resource.plugin.ApiServicesResource;
 import io.gravitee.rest.api.management.v2.rest.resource.plugin.EndpointsResource;
 import io.gravitee.rest.api.management.v2.rest.resource.plugin.EntrypointsResource;
@@ -73,6 +74,7 @@ public class GraviteeManagementV2Application extends ResourceConfig {
         register(EnvironmentsResource.class);
         register(ApisResource.class);
         register(ApplicationsResource.class);
+        register(KafkaUIResource.class);
 
         // Resources deprecated at root level
         register(EndpointsResource.class);

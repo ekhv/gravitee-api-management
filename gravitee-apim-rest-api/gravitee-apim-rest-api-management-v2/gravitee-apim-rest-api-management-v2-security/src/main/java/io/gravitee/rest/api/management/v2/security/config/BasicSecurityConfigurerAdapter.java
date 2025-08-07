@@ -284,6 +284,11 @@ public class BasicSecurityConfigurerAdapter {
             .permitAll()
             .requestMatchers(HttpMethod.GET, uriOrgPrefix + "/ui/**")
             .permitAll()
+            /*
+             * Management Kafka UI resources.
+             */
+            .requestMatchers("/kafka-console/**")
+            .permitAll()
             // Any other request must be authenticated
             .anyRequest()
             .authenticated()
