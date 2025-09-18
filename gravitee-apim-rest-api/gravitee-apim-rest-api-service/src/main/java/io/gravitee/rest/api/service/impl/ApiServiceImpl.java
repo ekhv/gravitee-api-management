@@ -1215,8 +1215,9 @@ public class ApiServiceImpl extends AbstractService implements ApiService {
             }
 
             // Keep existing picture as picture update has dedicated service
-            api.setPicture(apiToUpdate.getPicture());
             api.setBackground(apiToUpdate.getBackground());
+
+            api.setPicture(updateApiEntity.getPicture() != null ? updateApiEntity.getPicture() : apiToUpdate.getPicture());
 
             if (updateApiEntity.getGroups() == null) {
                 api.setGroups(apiToUpdate.getGroups());
