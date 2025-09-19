@@ -128,8 +128,6 @@ describe('FormatDurationPipe', () => {
       expect(pipe.transform(2592000000)).toBe('1mo');
     });
 
-
-
     it('should format 3888000000ms as "1.5mo"', () => {
       expect(pipe.transform(3888000000)).toBe('1.5mo');
     });

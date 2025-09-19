@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Component, input } from "@angular/core";
-import { MatTooltip } from "@angular/material/tooltip";
-import { MatIcon } from "@angular/material/icon";
-import { DecimalPipe } from "@angular/common";
+import { Component, input } from '@angular/core';
+import { MatTooltip } from '@angular/material/tooltip';
+import { MatIcon } from '@angular/material/icon';
+import { DecimalPipe } from '@angular/common';
 
-import { FormatDurationPipe } from "../../pipes/format-duration.pipe";
-import { FormatNumberPipe } from "../../pipes/format-number.pipe";
+import { FormatDurationPipe } from '../../pipes/format-duration.pipe';
+import { FormatNumberPipe } from '../../pipes/format-number.pipe';
 
 export type StatsUnitType = 'ms';
 

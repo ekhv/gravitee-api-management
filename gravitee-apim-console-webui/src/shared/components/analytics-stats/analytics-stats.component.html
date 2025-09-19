@@ -16,17 +16,17 @@
 
 -->
 <div class="analytics-stats">
-  <p class="analytics-stats__record">
-    @if(input().statsUnit === 'ms') {
-      {{ input().stats != null ? (input().stats | formatDuration) : '-' }}
-    } @else {
-      {{ input().stats != null ? (input().stats | formatNumber) : '-' }}
-    }
+  @let stat = input().stats;
 
-    @if(input().stats?.toString().length > 3) {
-      <mat-icon svgIcon="gio:info"
-                [matTooltip]="(input().stats | number)?.toString() + (input().statsUnit ? (' ' + input().statsUnit) : '')"
-      ></mat-icon>
+  <p class="analytics-stats__record">
+    @if (stat != null) {
+      {{ input().statsUnit === 'ms' ? (stat | formatDuration) : (stat | formatNumber) }}
+
+      @if (stat.toString().length > 3) {
+        <mat-icon svgIcon="gio:info" [matTooltip]="(stat | number) + (input().statsUnit ? ' ' + input().statsUnit : '')"> </mat-icon>
+      }
+    } @else {
+      -
     }
   </p>
 </div>
