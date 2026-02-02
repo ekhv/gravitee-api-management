@@ -1,0 +1,28 @@
+{
+  "name": "Java 21 Codespace",
+  // Use a general-purpose Linux base image, e.g., the 'universal' image
+  "image": "://mcr.microsoft.com",
+
+  // Add the Java feature to install JDK 21
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21",
+      "installMaven": "true"
+    }
+  },
+
+  // Configure VS Code extensions that are useful for Java development
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.maven"
+      ]
+    }
+  },
+
+
+
+  // Set the workspace folder
+  "workspaceFolder": "/workspaces/${localWorkspaceFolder}"
+}
