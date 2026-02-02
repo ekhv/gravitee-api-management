@@ -9,8 +9,5 @@
       "version": "21",
       "installMaven": "true"
     }
-  },
-
-  // Set the workspace folder
-  "workspaceFolder": "/workspaces/${localWorkspaceFolder}"
+  }
 }
