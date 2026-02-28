@@ -28,13 +28,13 @@ import io.gravitee.repository.management.api.search.ApiFieldFilter;
 import io.gravitee.repository.management.model.Environment;
 import io.gravitee.rest.api.service.common.ExecutionContext;
 import java.util.*;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
+@CustomLog
 public class ApiEndpointWeightUpgrader implements Upgrader {
 
     @Lazy
@@ -148,7 +148,8 @@ public class ApiEndpointWeightUpgrader implements Upgrader {
     }
 
     private ApiCriteria.Builder getDefaultApiCriteriaBuilder() {
-        return new ApiCriteria.Builder()
-            .definitionVersion(Arrays.asList(null, DefinitionVersion.V1, DefinitionVersion.V2, DefinitionVersion.V4));
+        return new ApiCriteria.Builder().definitionVersion(
+            Arrays.asList(null, DefinitionVersion.V1, DefinitionVersion.V2, DefinitionVersion.V4)
+        );
     }
 }

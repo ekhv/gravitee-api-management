@@ -16,9 +16,8 @@
 package io.gravitee.gateway.reactive.reactor.processor.reporter;
 
 import io.gravitee.definition.model.DefinitionVersion;
-import io.gravitee.gateway.reactive.api.ExecutionFailure;
-import io.gravitee.gateway.reactive.api.ExecutionWarn;
 import io.gravitee.gateway.reactive.api.connector.Connector;
+import io.gravitee.gateway.reactive.api.context.ContextAttributes;
 import io.gravitee.gateway.reactive.api.context.InternalContextAttributes;
 import io.gravitee.gateway.reactive.core.context.HttpExecutionContextInternal;
 import io.gravitee.gateway.reactive.core.processor.Processor;
@@ -30,18 +29,15 @@ import io.gravitee.reporter.api.v4.log.Log;
 import io.gravitee.reporter.api.v4.metric.Diagnostic;
 import io.gravitee.reporter.api.v4.metric.Metrics;
 import io.reactivex.rxjava3.core.Completable;
-import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.CustomLog;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author Guillaume LAMIRAND (guillaume.lamirand at graviteesource.com)
  * @author GraviteeSource Team
  */
+@CustomLog
 public class ReporterProcessor implements Processor {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(ReporterProcessor.class);
 
     private final ReporterService reporterService;
 
@@ -56,49 +52,50 @@ public class ReporterProcessor implements Processor {
 
     @Override
     public Completable execute(final HttpExecutionContextInternal ctx) {
-        return Completable
-            .fromRunnable(() -> {
-                Metrics metrics = ctx.metrics();
-                if (metrics != null && metrics.isEnabled()) {
-                    metrics.setRequestEnded(true);
-                    setEntrypointId(ctx, metrics);
+        return Completable.fromRunnable(() -> {
+            Metrics metrics = ctx.metrics();
+            if (metrics != null && metrics.isEnabled()) {
+                metrics.setRequestEnded(true);
+                setEntrypointId(ctx, metrics);
+                setQuota(ctx, metrics);
 
-                    executeReportActions(metrics);
+                executeReportActions(metrics);
 
-                    // Translate error key and error message to Diagnostic failure if needed
-                    translateErrorToDiagnosticFailure(metrics);
+                // Translate error key and error message to Diagnostic failure if needed
+                translateErrorToDiagnosticFailure(metrics);
 
-                    ReactableApi<?> reactableApi = ctx.getInternalAttribute(InternalContextAttributes.ATTR_INTERNAL_REACTABLE_API);
-                    if (reactableApi != null) {
-                        DefinitionVersion definitionVersion = reactableApi.getDefinitionVersion();
-                        if (definitionVersion == DefinitionVersion.V2) { // We are executing a v2 api with v4 emulation engine
-                            io.gravitee.reporter.api.http.Metrics metricsV2 = metrics.toV2();
-                            reporterService.report(metricsV2);
-                            if (metricsV2.getLog() != null) {
-                                metricsV2.getLog().setApi(metricsV2.getApi());
-                                metricsV2.getLog().setApiName(metricsV2.getApiName());
-                                reporterService.report(metricsV2.getLog());
-                            }
-                        } else if (definitionVersion == DefinitionVersion.V4) {
-                            reporterService.report(metrics);
-                            Log log = metrics.getLog();
-                            if (log != null) {
-                                log.setApiId(metrics.getApiId());
-                                log.setApiName(metrics.getApiName());
-                                log.setRequestEnded(metrics.isRequestEnded());
-                                reporterService.report(log);
-                            }
-                        } else {
-                            // Version unsupported only report metrics
-                            reporterService.report(metrics);
+                ReactableApi<?> reactableApi = ctx.getInternalAttribute(InternalContextAttributes.ATTR_INTERNAL_REACTABLE_API);
+                if (reactableApi != null) {
+                    DefinitionVersion definitionVersion = reactableApi.getDefinitionVersion();
+                    if (definitionVersion == DefinitionVersion.V2) {
+                        // We are executing a v2 api with v4 emulation engine
+                        io.gravitee.reporter.api.http.Metrics metricsV2 = metrics.toV2();
+                        reporterService.report(metricsV2);
+                        if (metricsV2.getLog() != null) {
+                            metricsV2.getLog().setApi(metricsV2.getApi());
+                            metricsV2.getLog().setApiName(metricsV2.getApiName());
+                            reporterService.report(metricsV2.getLog());
+                        }
+                    } else if (definitionVersion == DefinitionVersion.V4) {
+                        reporterService.report(metrics);
+                        Log log = metrics.getLog();
+                        if (log != null) {
+                            log.setApiId(metrics.getApiId());
+                            log.setApiName(metrics.getApiName());
+                            log.setRequestEnded(metrics.isRequestEnded());
+                            reporterService.report(log);
                         }
                     } else {
-                        // No api found report only metrics
+                        // Version unsupported only report metrics
                         reporterService.report(metrics);
                     }
+                } else {
+                    // No api found report only metrics
+                    reporterService.report(metrics);
                 }
-            })
-            .doOnError(throwable -> LOGGER.error("An error occurs while reporting metrics", throwable))
+            }
+        })
+            .doOnError(throwable -> ctx.withLogger(log).error("An error occurs while reporting metrics", throwable))
             .onErrorComplete();
     }
 
@@ -107,6 +104,18 @@ public class ReporterProcessor implements Processor {
         if (connector != null) {
             metrics.setEntrypointId(connector.id());
         }
+    }
+
+    private static void addLongMetric(Metrics metrics, String key, HttpExecutionContextInternal ctx) {
+        Long value = ctx.getAttribute(key);
+        if (value != null) {
+            metrics.putAdditionalMetric("long_" + key.replace(ContextAttributes.ATTR_PREFIX, ""), value);
+        }
+    }
+
+    private static void setQuota(HttpExecutionContextInternal ctx, Metrics metrics) {
+        addLongMetric(metrics, ContextAttributes.ATTR_QUOTA_COUNT, ctx);
+        addLongMetric(metrics, ContextAttributes.ATTR_QUOTA_LIMIT, ctx);
     }
 
     private void executeReportActions(Metrics metrics) {

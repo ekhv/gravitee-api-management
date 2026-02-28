@@ -35,6 +35,11 @@
             <div [class]="'gio-method-badge-' + metricValue?.method.toLocaleLowerCase()">{{ metricValue?.method }}</div>
           </dd>
 
+          @if (apiType() === 'MCP_PROXY') {
+            <dt class="mat-caption">MCP method</dt>
+            <dd class="gio-caption-2">{{ metricValue?.additionalMetrics['keyword_mcp-proxy_method'] }}</dd>
+          }
+
           <dt class="mat-caption">URI</dt>
           <dd class="gio-caption-2">{{ metricValue?.uri }}</dd>
 
@@ -61,6 +66,17 @@
               {{ metricValue?.status }}
             </div>
           </dd>
+
+          @if (apiType() === 'MCP_PROXY') {
+            <dt class="mat-caption">MCP error</dt>
+            <dd class="gio-caption-2">
+              @if (metricValue?.additionalMetrics['long_mcp-proxy_response-error-code']) {
+                <span class="gio-badge-error">{{
+                  getMcpErrorLabel(metricValue?.additionalMetrics['long_mcp-proxy_response-error-code'])
+                }}</span>
+              }
+            </dd>
+          }
 
           <dt class="mat-caption">Global response time</dt>
           <dd class="gio-caption-2">{{ metricValue?.gatewayResponseTime }}</dd>
@@ -92,10 +108,10 @@
         <dd class="gio-caption-2">{{ metricValue?.endpoint }}</dd>
 
         <dt class="mat-caption">Gateway Host</dt>
-        <dd class="gio-caption-2">{{ instance()?.hostname }}</dd>
+        <dd class="gio-caption-2">{{ metricValue?.gatewayHostname }}</dd>
 
         <dt class="mat-caption">Gateway IP</dt>
-        <dd class="gio-caption-2">{{ instance()?.ip }}</dd>
+        <dd class="gio-caption-2">{{ metricValue?.gatewayIp }}</dd>
       </dl>
     </mat-expansion-panel>
 
@@ -106,9 +122,9 @@
       metricValue?.message ||
       (metricValue?.warnings && metricValue?.warnings.length > 0)
     ) {
-      <mat-expansion-panel class="mat-elevation-z0 more-details">
+      <mat-expansion-panel class="mat-elevation-z0 more-details issues-panel">
         <mat-expansion-panel-header>
-          <mat-panel-title> Diagnostics </mat-panel-title>
+          <mat-panel-title> Issues </mat-panel-title>
         </mat-expansion-panel-header>
         <div class="card__container">
           @if (metricValue?.errorKey || metricValue?.errorComponentName || metricValue?.errorComponentType || metricValue?.message) {

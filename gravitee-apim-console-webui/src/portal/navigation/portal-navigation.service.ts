@@ -45,9 +45,9 @@ export class PortalNavigationService {
       permissions: ['environment-category-r', 'environment-category-u'],
     },
     {
-      displayName: 'Top Bar',
-      routerLink: 'top-bar',
-      icon: 'gio:top-bar',
+      displayName: 'Navigation',
+      routerLink: 'navigation',
+      icon: 'gio:page',
       permissions: ['environment-settings-r', 'environment-settings-u'],
     },
     {
@@ -74,11 +74,17 @@ export class PortalNavigationService {
       icon: 'gio:box',
       permissions: ['environment-documentation-r', 'environment-documentation-u'],
     },
+    {
+      displayName: 'Subscription Form',
+      routerLink: 'subscription-form',
+      icon: 'gio:list-check',
+      permissions: ['environment-settings-r', 'environment-settings-u'],
+    },
   ];
 
   public getMainMenuItems(): MenuItem[] {
     return this.allMenuItems
-      .filter((item) => this.permissionService.hasAnyMatching(item.permissions))
+      .filter(item => this.permissionService.hasAnyMatching(item.permissions))
       .map(({ displayName, routerLink, icon }) => ({
         displayName,
         routerLink,

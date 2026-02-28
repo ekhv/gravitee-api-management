@@ -36,7 +36,7 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.Map.Entry;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.stereotype.Repository;
@@ -45,7 +45,7 @@ import org.springframework.stereotype.Repository;
  *
  * @author njt
  */
-@Slf4j
+@CustomLog
 @Repository
 public class JdbcAuditRepository extends JdbcAbstractPageableRepository<Audit> implements AuditRepository {
 
@@ -58,8 +58,7 @@ public class JdbcAuditRepository extends JdbcAbstractPageableRepository<Audit> i
 
     @Override
     protected JdbcObjectMapper<Audit> buildOrm() {
-        return JdbcObjectMapper
-            .builder(Audit.class, this.tableName, "id")
+        return JdbcObjectMapper.builder(Audit.class, this.tableName, "id")
             .addColumn("id", Types.NVARCHAR, String.class)
             .addColumn("organization_id", Types.NVARCHAR, String.class)
             .addColumn("environment_id", Types.NVARCHAR, String.class)
@@ -126,8 +125,9 @@ public class JdbcAuditRepository extends JdbcAbstractPageableRepository<Audit> i
         try {
             jdbcTemplate.update(getOrm().buildUpdatePreparedStatementCreator(audit, audit.getId()));
             storeProperties(audit, true);
-            return findById(audit.getId())
-                .orElseThrow(() -> new IllegalStateException(format("No audit found with id [%s]", audit.getId())));
+            return findById(audit.getId()).orElseThrow(() ->
+                new IllegalStateException(format("No audit found with id [%s]", audit.getId()))
+            );
         } catch (final IllegalStateException ex) {
             throw ex;
         } catch (final Exception ex) {

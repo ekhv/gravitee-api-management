@@ -30,6 +30,7 @@ import io.gravitee.apim.core.api.model.crd.PlanCRD;
 import io.gravitee.apim.core.api.use_case.ExportApiCRDUseCase;
 import io.gravitee.apim.core.audit.model.AuditInfo;
 import io.gravitee.apim.rest.api.automation.model.ApiV4State;
+import io.gravitee.apim.rest.api.automation.model.PlanSecurityType;
 import io.gravitee.apim.rest.api.automation.model.PlanV4;
 import io.gravitee.apim.rest.api.automation.resource.base.AbstractResourceTest;
 import io.gravitee.definition.model.v4.plan.PlanSecurity;
@@ -42,10 +43,14 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ApiResourceTest extends AbstractResourceTest {
 
@@ -72,8 +77,9 @@ class ApiResourceTest extends AbstractResourceTest {
         void should_get_api_from_known_hrid() {
             try (var ctx = mockStatic(GraviteeContext.class)) {
                 ctx.when(GraviteeContext::getExecutionContext).thenReturn(new ExecutionContext(ORGANIZATION, ENVIRONMENT));
-                when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class)))
-                    .thenReturn(new ExportApiCRDUseCase.Output(ApiCRDSpec.builder().id(API_ID).crossId(API_CROSS_ID).hrid(HRID).build()));
+                when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class))).thenReturn(
+                    new ExportApiCRDUseCase.Output(ApiCRDSpec.builder().id(API_ID).crossId(API_CROSS_ID).hrid(HRID).build())
+                );
                 var state = expectEntity(HRID, false);
                 SoftAssertions.assertSoftly(soft -> {
                     assertThat(state.getId()).isEqualTo(API_ID);
@@ -89,8 +95,9 @@ class ApiResourceTest extends AbstractResourceTest {
         void should_get_api_from_known_legacy_id() {
             try (var ctx = mockStatic(GraviteeContext.class)) {
                 ctx.when(GraviteeContext::getExecutionContext).thenReturn(new ExecutionContext(ORGANIZATION, ENVIRONMENT));
-                when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class)))
-                    .thenReturn(new ExportApiCRDUseCase.Output(ApiCRDSpec.builder().id(API_ID).crossId(API_CROSS_ID).hrid(API_ID).build()));
+                when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class))).thenReturn(
+                    new ExportApiCRDUseCase.Output(ApiCRDSpec.builder().id(API_ID).crossId(API_CROSS_ID).hrid(API_ID).build())
+                );
                 var state = expectEntity(API_ID, true);
                 SoftAssertions.assertSoftly(soft -> {
                     assertThat(state.getId()).isEqualTo(API_ID);
@@ -102,23 +109,25 @@ class ApiResourceTest extends AbstractResourceTest {
             }
         }
 
-        @Test
-        void should_get_api_with_null_plan_type() {
+        @ParameterizedTest
+        @MethodSource("securityTypes")
+        void should_get_api_with_security_plan_type(String securityType, PlanSecurityType expectedType) {
             try (var ctx = mockStatic(GraviteeContext.class)) {
                 ctx.when(GraviteeContext::getExecutionContext).thenReturn(new ExecutionContext(ORGANIZATION, ENVIRONMENT));
-                when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class)))
-                    .thenReturn(
-                        new ExportApiCRDUseCase.Output(
-                            ApiCRDSpec
-                                .builder()
-                                .id(API_ID)
-                                .crossId(API_CROSS_ID)
-                                .hrid(HRID)
-                                .plans(Map.of("apikey", PlanCRD.builder().security(PlanSecurity.builder().type("API_KEY").build()).build()))
-                                .build()
-                        )
-                    );
+
+                when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class))).thenReturn(
+                    new ExportApiCRDUseCase.Output(
+                        ApiCRDSpec.builder()
+                            .id(API_ID)
+                            .crossId(API_CROSS_ID)
+                            .hrid(HRID)
+                            .plans(Map.of("plan", PlanCRD.builder().security(PlanSecurity.builder().type(securityType).build()).build()))
+                            .build()
+                    )
+                );
+
                 var state = expectEntity(HRID, false);
+
                 SoftAssertions.assertSoftly(soft -> {
                     assertThat(state.getId()).isEqualTo(API_ID);
                     assertThat(state.getHrid()).isEqualTo(HRID);
@@ -130,15 +139,16 @@ class ApiResourceTest extends AbstractResourceTest {
                         .get()
                         .extracting(PlanV4::getSecurity)
                         .extracting(io.gravitee.apim.rest.api.automation.model.PlanSecurity::getType)
-                        .isNull();
+                        .isEqualTo(expectedType);
                 });
             }
         }
 
         @Test
         void should_return_a_404_status_code_with_unknown_hrid() {
-            when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class)))
-                .thenThrow(new NotFoundException("No API found with hrid: unknown"));
+            when(exportApiCRDUseCase.execute(any(ExportApiCRDUseCase.Input.class))).thenThrow(
+                new NotFoundException("No API found with hrid: unknown")
+            );
 
             expectNotFound("unknown");
         }
@@ -155,6 +165,16 @@ class ApiResourceTest extends AbstractResourceTest {
             ) {
                 return response.readEntity(ApiV4State.class);
             }
+        }
+
+        private static Stream<Arguments> securityTypes() {
+            return Stream.of(
+                Arguments.of("API_KEY", PlanSecurityType.API_KEY),
+                Arguments.of("KEY_LESS", PlanSecurityType.KEY_LESS),
+                Arguments.of("OAUTH2", PlanSecurityType.OAUTH2),
+                Arguments.of("JWT", PlanSecurityType.JWT),
+                Arguments.of("MTLS", PlanSecurityType.MTLS)
+            );
         }
     }
 

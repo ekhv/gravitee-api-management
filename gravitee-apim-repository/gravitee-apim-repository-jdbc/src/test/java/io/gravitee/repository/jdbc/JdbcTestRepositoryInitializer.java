@@ -52,6 +52,8 @@ public class JdbcTestRepositoryInitializer implements TestRepositoryInitializer 
         "api_labels",
         "api_tags",
         "api_categories",
+        "api_product_apis",
+        "api_products",
         "applications",
         "application_groups",
         "application_metadata",
@@ -60,8 +62,10 @@ public class JdbcTestRepositoryInitializer implements TestRepositoryInitializer 
         "commands",
         "command_acknowledgments",
         "command_tags",
+        "client_certificates",
         "client_registration_providers",
         "client_registration_provider_scopes",
+        "custom_dashboards",
         "custom_user_fields",
         "custom_user_fields_values",
         "dictionaries",
@@ -137,6 +141,7 @@ public class JdbcTestRepositoryInitializer implements TestRepositoryInitializer 
         "flow_selector_http_methods",
         "flow_selector_channel_operations",
         "flow_selector_channel_entrypoints",
+        "flow_selector_mcp_methods",
         "flow_tags",
         "upgraders",
         "integrations",
@@ -153,7 +158,10 @@ public class JdbcTestRepositoryInitializer implements TestRepositoryInitializer 
         "clusters",
         "cluster_groups",
         "portal_pages",
-        "portal_page_contexts"
+        "portal_page_contexts",
+        "portal_page_contents",
+        "portal_navigation_items",
+        "subscription_forms"
     );
     private static final List<String> tablesToDrop = concatenate(tablesToTruncate, List.of("databasechangelog", "databasechangeloglock"));
     private final DataSource dataSource;

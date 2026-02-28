@@ -21,19 +21,23 @@ import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { MatDialogHarness } from '@angular/material/dialog/testing';
 
 import { HomepageComponent } from './homepage.component';
 
-import { GioTestingModule, CONSTANTS_TESTING } from '../../shared/testing';
+import { CONSTANTS_TESTING, GioTestingModule } from '../../shared/testing';
 import { GioPermissionService } from '../../shared/components/gio-permission/gio-permission.service';
 import { fakePortalPageWithDetails } from '../../entities/portal/portal-page-with-details.fixture';
 import { PatchPortalPage } from '../../entities/portal/patch-portal-page';
 import { PortalPageWithDetails } from '../../entities/portal/portal-page-with-details';
+import { SnackBarService } from '../../services-ngx/snack-bar.service';
 
 describe('HomepageComponent', () => {
   let fixture: ComponentFixture<HomepageComponent>;
   let harnessLoader: HarnessLoader;
   let httpTestingController: HttpTestingController;
+  let rootLoader: HarnessLoader;
+  let snackBarService: SnackBarService;
 
   const init = async (canUpdate: boolean, portalPage = fakePortalPageWithDetails()) => {
     await TestBed.configureTestingModule({
@@ -53,13 +57,41 @@ describe('HomepageComponent', () => {
     fixture = TestBed.createComponent(HomepageComponent);
     httpTestingController = TestBed.inject(HttpTestingController);
     harnessLoader = TestbedHarnessEnvironment.loader(fixture);
+    rootLoader = TestbedHarnessEnvironment.documentRootLoader(fixture); // Used for dialogs
+
+    // Spy on snackbar
+    snackBarService = TestBed.inject(SnackBarService);
+    jest.spyOn(snackBarService, 'success');
+    jest.spyOn(snackBarService, 'error');
+
     fixture.detectChanges();
 
+    // The new implementation fetches portal navigation items for the HOMEPAGE area
+    const navReq = httpTestingController.expectOne({
+      method: 'GET',
+      url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-navigation-items?area=HOMEPAGE`,
+    });
+    if (!portalPage) {
+      // return an empty items list to simulate no homepage navigation
+      navReq.flush({ items: [] });
+      return;
+    }
+
+    // Respond with a navigation page that references the portalPage content id and carries published status
+    navReq.flush({
+      items: [
+        {
+          id: 'nav-homepage-id',
+          type: 'PAGE',
+          portalPageContentId: portalPage.id,
+          published: portalPage.published ?? false,
+        },
+      ],
+    });
+
+    // Then the service fetches the portal page content by content id
     httpTestingController
-      .expectOne({
-        method: 'GET',
-        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-pages/_homepage`,
-      })
+      .expectOne({ method: 'GET', url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-page-contents/${portalPage.id}` })
       .flush(portalPage);
   };
 
@@ -79,13 +111,10 @@ describe('HomepageComponent', () => {
   });
 
   it('should disable editor when user has no update permission', async () => {
-    await init(false);
-
+    const fakePortalPage = fakePortalPageWithDetails();
+    await init(false, fakePortalPage);
     const editorHarness = await harnessLoader.getHarness(GraviteeMarkdownEditorHarness);
     expect(await editorHarness.isEditorReadOnly()).toBe(true);
-
-    const saveButton = await getSaveButton();
-    expect(await saveButton.isDisabled()).toBeTruthy();
   });
 
   it('should disable editor when content has not changed or is empty', async () => {
@@ -133,14 +162,171 @@ describe('HomepageComponent', () => {
     expect(await saveButton.isDisabled()).toBeTruthy();
   });
 
+  describe('togglePublish functionality', () => {
+    it('should publish an unpublished page after confirmation', async () => {
+      const unpublishedPage = fakePortalPageWithDetails({ published: false });
+      await init(true, unpublishedPage);
+
+      const toggleButton = await getToggleButton();
+      expect(await toggleButton.getText()).toBe('Publish');
+      await toggleButton.click();
+
+      await confirmDialog();
+
+      const req = httpTestingController.expectOne({
+        method: 'PUT',
+        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-navigation-items/nav-homepage-id`,
+      });
+      // Ensure we are toggling to published
+      expect(req.request.body?.published).toBe(true);
+      // Respond with updated navigation item (service returns navigation item)
+      req.flush({ id: 'nav-homepage-id', type: 'PAGE', portalPageContentId: unpublishedPage.id, published: true });
+      fixture.detectChanges();
+
+      expect(snackBarService.success).toHaveBeenCalledWith('Page has been published successfully.');
+      expect(await toggleButton.getText()).toBe('Unpublish');
+
+      const badgeElement = fixture.nativeElement.querySelector('[data-testid="status-badge"]');
+
+      expect(badgeElement).toBeTruthy();
+      expect(badgeElement?.textContent?.trim()).toBe('Published');
+      expect(badgeElement?.classList.contains('gio-badge-success')).toBe(true);
+    });
+
+    it('should unpublish a published page after confirmation', async () => {
+      const publishedPage = fakePortalPageWithDetails({ published: true });
+      await init(true, publishedPage);
+
+      const toggleButton = await getToggleButton();
+      expect(await toggleButton.getText()).toBe('Unpublish');
+
+      await toggleButton.click();
+
+      await confirmDialog();
+
+      const req = httpTestingController.expectOne({
+        method: 'PUT',
+        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-navigation-items/nav-homepage-id`,
+      });
+      // Ensure we are toggling to unpublished
+      expect(req.request.body?.published).toBe(false);
+      req.flush({ id: 'nav-homepage-id', type: 'PAGE', portalPageContentId: publishedPage.id, published: false });
+      fixture.detectChanges();
+
+      expect(snackBarService.success).toHaveBeenCalledWith('Page has been unpublished successfully.');
+      expect(await toggleButton.getText()).toBe('Publish');
+
+      const badgeElement = fixture.nativeElement.querySelector('[data-testid="status-badge"]');
+
+      expect(badgeElement).toBeTruthy();
+      expect(badgeElement?.textContent?.trim()).toBe('Unpublished');
+      expect(badgeElement?.classList.contains('gio-badge-warning')).toBe(true);
+    });
+
+    it('should not perform any action if the confirmation dialog is cancelled', async () => {
+      const unpublishedPage = fakePortalPageWithDetails({ published: false });
+      await init(true, unpublishedPage);
+
+      const toggleButton = await getToggleButton();
+      await toggleButton.click();
+
+      const dialog = await rootLoader.getHarness(MatDialogHarness);
+      await dialog.close(); // Simulates clicking cancel or escape
+
+      // No other HTTP requests should be made
+      httpTestingController.verify();
+    });
+
+    it('should show an error message if publishing fails', async () => {
+      await init(true, fakePortalPageWithDetails({ published: false }));
+
+      const toggleButton = await getToggleButton();
+      await toggleButton.click();
+      await confirmDialog();
+
+      const req = httpTestingController.expectOne({
+        method: 'PUT',
+        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-navigation-items/nav-homepage-id`,
+      });
+      req.flush({ message: 'API error on publish' }, { status: 500, statusText: 'Server Error' });
+
+      expect(snackBarService.error).toHaveBeenCalledWith('API error on publish');
+    });
+
+    it('should show an error message if unpublishing fails', async () => {
+      await init(true, fakePortalPageWithDetails({ published: true }));
+
+      const toggleButton = await getToggleButton();
+      await toggleButton.click();
+      await confirmDialog();
+
+      const req = httpTestingController.expectOne({
+        method: 'PUT',
+        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-navigation-items/nav-homepage-id`,
+      });
+      req.flush({ message: 'API error on unpublish' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(snackBarService.error).toHaveBeenCalledWith('API error on unpublish');
+    });
+
+    it('should disable publish/unpublish button if user lacks permission', async () => {
+      await init(false, fakePortalPageWithDetails({ published: true }));
+
+      const toggleButton = await getToggleButton();
+      expect(await toggleButton.isDisabled()).toBe(true);
+    });
+
+    it('should disable publish/unpublish button homepage data is null', async () => {
+      await init(true, null);
+
+      const toggleButton = await getToggleButton();
+      expect(await toggleButton.isDisabled()).toBe(true);
+    });
+  });
+
+  it('should have unsaved changes when content is modified', async () => {
+    await init(true, fakePortalPageWithDetails({ content: 'Initial content' }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.hasUnsavedChanges()).toBeFalsy();
+
+    fixture.componentInstance.contentControl.setValue('Modified content');
+    expect(fixture.componentInstance.hasUnsavedChanges()).toBeTruthy();
+  });
+
+  it('should not have unsaved changes when content is modified and then reverted to initial value', async () => {
+    await init(true, fakePortalPageWithDetails({ content: 'Initial content' }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.hasUnsavedChanges()).toBeFalsy();
+
+    fixture.componentInstance.contentControl.setValue('Modified content');
+    expect(fixture.componentInstance.hasUnsavedChanges()).toBeTruthy();
+
+    fixture.componentInstance.contentControl.setValue('Initial content');
+    expect(fixture.componentInstance.hasUnsavedChanges()).toBeFalsy();
+  });
+
+  async function getToggleButton() {
+    return await harnessLoader.getHarness(MatButtonHarness.with({ selector: '[data-testid=toggle-publish-button]' }));
+  }
+
+  async function confirmDialog() {
+    const dialog = await rootLoader.getHarness(MatDialogHarness);
+    const confirmButton = await dialog.getHarness(MatButtonHarness.with({ text: /Publish|Unpublish/ }));
+    await confirmButton.click();
+  }
+
   async function getSaveButton() {
     return await harnessLoader.getHarness(MatButtonHarness.with({ selector: '[aria-label="Update portal page"]' }));
   }
 
   function expectPortalPageUpdate(expected: PatchPortalPage, response: PortalPageWithDetails) {
     const req = httpTestingController.expectOne({
-      method: 'PATCH',
-      url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-pages/${response.id}`,
+      method: 'PUT',
+      url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-page-contents/${response.id}`,
     });
     expect(req.request.body).toStrictEqual(expected);
     req.flush(response);

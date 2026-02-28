@@ -27,7 +27,7 @@ import java.io.StringWriter;
 import java.util.*;
 import javax.wsdl.*;
 import javax.wsdl.extensions.schema.Schema;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.apache.xmlbeans.SchemaTypeSystem;
 import org.apache.xmlbeans.XmlBeans;
 import org.apache.xmlbeans.XmlCursor;
@@ -35,7 +35,7 @@ import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlObject;
 import org.apache.xmlbeans.XmlOptions;
 
-@Slf4j
+@CustomLog
 public class SoapMessageBuilder {
 
     public static final String XMLSCHEMA = "http://www.w3.org/2001/XMLSchema";
@@ -80,8 +80,11 @@ public class SoapMessageBuilder {
 
     public void compileSchemas() {
         try {
-            schemaTypeSystem =
-                XmlBeans.compileXsd(schemas.toArray(new XmlObject[schemas.size()]), XmlBeans.getBuiltinTypeSystem(), options);
+            schemaTypeSystem = XmlBeans.compileXsd(
+                schemas.toArray(new XmlObject[schemas.size()]),
+                XmlBeans.getBuiltinTypeSystem(),
+                options
+            );
             this.compiled = true;
         } catch (XmlException e) {
             log.warn("Compilation of XSD failed, OpenAPI specification will be generated without SOAP envelope.", e);

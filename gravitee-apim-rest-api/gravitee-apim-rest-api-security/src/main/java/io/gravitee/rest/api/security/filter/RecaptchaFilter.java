@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.GenericFilterBean;
 
@@ -39,7 +39,7 @@ import org.springframework.web.filter.GenericFilterBean;
  * @author Jeoffrey HAEYAERT (jeoffrey.haeyaert at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class RecaptchaFilter extends GenericFilterBean {
 
     public static final String DEFAULT_RECAPTCHA_HEADER_NAME = "X-Recaptcha-Token";
@@ -69,11 +69,9 @@ public class RecaptchaFilter extends GenericFilterBean {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         if (
-            RESTRICTED_PATHS
-                .stream()
-                .anyMatch(path ->
-                    httpRequest.getPathInfo().contains(path) || MNG_CHANGE_PASSWORD.matcher(httpRequest.getPathInfo()).matches()
-                )
+            RESTRICTED_PATHS.stream().anyMatch(
+                path -> httpRequest.getPathInfo().contains(path) || MNG_CHANGE_PASSWORD.matcher(httpRequest.getPathInfo()).matches()
+            )
         ) {
             log.debug("Checking captcha");
 

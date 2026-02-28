@@ -24,13 +24,13 @@ import io.gravitee.gateway.reactive.core.processor.Processor;
 import io.reactivex.rxjava3.core.Completable;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author Jeoffrey HAEYAERT (jeoffrey.haeyaert at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class ConnectionDrainProcessor implements Processor {
 
     private SimpleDateFormat sdf;
@@ -55,11 +55,13 @@ public class ConnectionDrainProcessor implements Processor {
                     if (sdf == null) {
                         sdf = new SimpleDateFormat("HH:mm:ss.SSS");
                     }
-                    log.debug(
-                        "Drain connection started at {} ({})",
-                        sdf.format(new Date(ctx.request().connectionTimestamp())),
-                        ctx.request().version().name()
-                    );
+                    ctx
+                        .withLogger(log)
+                        .debug(
+                            "Drain connection started at {} ({})",
+                            sdf.format(new Date(ctx.request().connectionTimestamp())),
+                            ctx.request().version().name()
+                        );
                 }
                 if (ctx.request().version() == HttpVersion.HTTP_2) {
                     ctx.response().headers().set(HttpHeaderNames.CONNECTION, HttpHeadersValues.CONNECTION_GO_AWAY);

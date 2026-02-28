@@ -22,6 +22,7 @@ import io.gravitee.common.event.EventManager;
 import io.gravitee.gateway.api.http.HttpHeaderNames;
 import io.gravitee.node.api.cache.Cache;
 import io.gravitee.node.api.cache.CacheConfiguration;
+import io.gravitee.node.api.cache.CacheListener;
 import io.gravitee.node.plugin.cache.common.InMemoryCache;
 import io.gravitee.rest.api.model.parameters.ParameterReferenceType;
 import io.gravitee.rest.api.service.ParameterService;
@@ -59,37 +60,37 @@ public abstract class AbstractGraviteeUrlBasedCorsConfigurationSource extends Ur
         this.eventManager = eventManager;
         this.parameterReferenceType = parameterReferenceType;
 
-        final CacheConfiguration cacheConfiguration = CacheConfiguration
-            .builder()
+        final CacheConfiguration cacheConfiguration = CacheConfiguration.builder()
             .maxSize(environment.getProperty("cors.cache.max-size", Integer.class, 1000))
             .timeToLiveInMs(environment.getProperty("cors.cache.ttl", Long.class, 60000L))
             .build();
 
         this.corsConfigurationByUrl = new InMemoryCache<>("cors-config-by-url", cacheConfiguration);
+        this.corsConfigurationByUrl.addCacheListener(new CorsConfigurationCacheListener());
     }
 
     @Override
     public CorsConfiguration getCorsConfiguration(final @NonNull HttpServletRequest request) {
         String referenceId = getReferenceId();
 
-        return corsConfigurationByUrl.computeIfAbsent(
-            extractUrl(request),
-            id ->
-                new GraviteeCorsConfiguration(
-                    environment,
-                    parameterService,
-                    installationAccessQueryService,
-                    eventManager,
-                    referenceId != null ? referenceId : UNDEFINED_REFERENCE_ID,
-                    parameterReferenceType
-                )
+        return corsConfigurationByUrl.computeIfAbsent(extractUrl(request), id ->
+            new GraviteeCorsConfiguration(
+                environment,
+                parameterService,
+                installationAccessQueryService,
+                eventManager,
+                referenceId != null ? referenceId : UNDEFINED_REFERENCE_ID,
+                parameterReferenceType
+            )
         );
     }
 
     protected abstract String getReferenceId();
 
     private String extractUrl(HttpServletRequest request) {
-        return extractUrlFromReferer(request).or(() -> extractUrlFromOrigin(request)).orElseGet(() -> extractUrlFromServer(request));
+        return extractUrlFromReferer(request)
+            .or(() -> extractUrlFromOrigin(request))
+            .orElseGet(() -> extractUrlFromServer(request));
     }
 
     private Optional<String> extractUrlFromReferer(HttpServletRequest request) {
@@ -102,5 +103,28 @@ public abstract class AbstractGraviteeUrlBasedCorsConfigurationSource extends Ur
 
     private String extractUrlFromServer(HttpServletRequest request) {
         return request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+    }
+
+    /**
+     * Cache listener to release CorsConfiguration when evicted or expired from cache.
+     * This is required to unregister any event listener registered by the CorsConfiguration.
+     */
+    private static class CorsConfigurationCacheListener implements CacheListener<String, CorsConfiguration> {
+
+        @Override
+        public void onEntryEvicted(String key, CorsConfiguration corsConfiguration) {
+            release(corsConfiguration);
+        }
+
+        @Override
+        public void onEntryExpired(String key, CorsConfiguration corsConfiguration) {
+            release(corsConfiguration);
+        }
+
+        private static void release(CorsConfiguration corsConfiguration) {
+            if (corsConfiguration instanceof GraviteeCorsConfiguration graviteeCorsConfiguration) {
+                graviteeCorsConfiguration.release();
+            }
+        }
     }
 }

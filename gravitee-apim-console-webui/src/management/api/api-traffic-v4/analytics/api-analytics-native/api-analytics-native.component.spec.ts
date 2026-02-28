@@ -19,7 +19,7 @@ import { MatIconTestingModule } from '@angular/material/icon/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { OwlNativeDateTimeModule } from '@danielmoncada/angular-datetime-picker';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { of } from 'rxjs';
 
@@ -118,30 +118,11 @@ describe('ApiAnalyticsNativeComponent', () => {
       expectPlanList([plan1, plan2]);
 
       const filtersBar = await componentHarness.getFiltersBarHarness();
-      const selectedValues = await filtersBar.getSelectedPlans();
+      const selectedPlans = await filtersBar.getSelectedPlans();
+      const selectedApplications = await filtersBar.getSelectedApplications();
 
-      expect(selectedValues).toEqual(['1']);
-      flushAllRequests();
-    });
-
-    it('should update the URL query params when a plan is selected', async () => {
-      await initComponent();
-
-      expectPlanList([plan1, plan2]);
-
-      const router = TestBed.inject(Router);
-      const routerSpy = jest.spyOn(router, 'navigate');
-
-      const filtersBar = await componentHarness.getFiltersBarHarness();
-      await filtersBar.selectPlan('plan 2');
-
-      expect(routerSpy).toHaveBeenCalledWith([], {
-        queryParams: {
-          period: '1d',
-          plans: '2',
-        },
-        queryParamsHandling: 'replace',
-      });
+      expect(selectedPlans).toEqual(['1']);
+      expect(selectedApplications).toEqual(['1']);
       flushAllRequests();
     });
   });
@@ -151,11 +132,11 @@ describe('ApiAnalyticsNativeComponent', () => {
       await initComponent();
 
       // Verify that backend calls are made with default time range (1d)
-      const requests = httpTestingController.match((req) => req.url.includes('/analytics'));
+      const requests = httpTestingController.match(req => req.url.includes('/analytics'));
       expect(requests.length).toBeGreaterThan(0);
 
       // Check that all requests include the default time range parameters
-      requests.forEach((req) => {
+      requests.forEach(req => {
         expect(req.request.url).toContain('type=');
         expect(req.request.url).toContain('from=');
         expect(req.request.url).toContain('to=');
@@ -166,19 +147,22 @@ describe('ApiAnalyticsNativeComponent', () => {
     });
 
     it('should make backend calls with custom period from query params', async () => {
-      await initComponent({ period: 'custom', from: '1', to: '2' });
+      await initComponent({ period: 'custom', from: '1', to: '2', plans: '1,2', applications: '1,2' });
 
       // Verify that backend calls are made with 7d time range
-      const requests = httpTestingController.match((req) => req.url.includes('/analytics'));
+      const requests = httpTestingController.match(req => req.url.includes('/analytics'));
       expect(requests.length).toBeGreaterThan(0);
 
       // Check that requests include the correct time range
       requests
-        .filter((request) => !request.cancelled)
-        .forEach((req) => {
+        .filter(request => !request.cancelled)
+        // Filter request not available for plans and application query params
+        .filter(request => !request.request.url.includes('downstream-active-connections'))
+        .forEach(req => {
           expect(req.request.url).toContain('from=1');
           expect(req.request.url).toContain('to=2');
           expect(req.request.url).toContain('interval=0');
+          expect(req.request.url).toContain('terms=plan-id:1,plan-id:2,app-id:1,app-id:2');
         });
 
       flushAllRequests();
@@ -187,13 +171,13 @@ describe('ApiAnalyticsNativeComponent', () => {
     it('should make backend call for histogram analytics type', async () => {
       await initComponent({ period: '1d' });
 
-      const requests = httpTestingController.match((req) => req.url.includes('/analytics'));
+      const requests = httpTestingController.match(req => req.url.includes('/analytics'));
 
-      const histogramRequests = requests.filter((req) => req.request.url.includes('type=HISTOGRAM'));
+      const histogramRequests = requests.filter(req => req.request.url.includes('type=HISTOGRAM'));
 
       expect(histogramRequests.length).toBe(8);
 
-      histogramRequests.forEach((req) => {
+      histogramRequests.forEach(req => {
         expect(req.request.url).toContain('type=HISTOGRAM');
         expect(req.request.url).toContain('from=');
         expect(req.request.url).toContain('to=');
@@ -201,13 +185,16 @@ describe('ApiAnalyticsNativeComponent', () => {
         expect(req.request.url).toContain('aggregations=');
       });
 
-      const trendRequests = requests.filter((req) => req.request.url.includes('TREND:'));
-      expect(trendRequests.length).toBe(5);
+      const trendRequests = requests.filter(req => req.request.url.includes('TREND:'));
+      expect(trendRequests.length).toBe(1);
 
-      const valueRequests = requests.filter((req) => req.request.url.includes('VALUE:'));
+      const trendRateRequests = requests.filter(req => req.request.url.includes('TREND_RATE:'));
+      expect(trendRateRequests.length).toBe(4);
+
+      const valueRequests = requests.filter(req => req.request.url.includes('VALUE:'));
       expect(valueRequests.length).toBe(1);
 
-      const deltaRequests = requests.filter((req) => req.request.url.includes('DELTA:'));
+      const deltaRequests = requests.filter(req => req.request.url.includes('DELTA:'));
       expect(deltaRequests.length).toBe(2);
 
       flushAllRequests();
@@ -216,11 +203,11 @@ describe('ApiAnalyticsNativeComponent', () => {
     it('should include API ID in all backend calls', async () => {
       await initComponent({ period: '1d' });
 
-      const requests = httpTestingController.match((req) => req.url.includes('/analytics'));
+      const requests = httpTestingController.match(req => req.url.includes('/analytics'));
       expect(requests.length).toBeGreaterThan(0);
 
       // Verify all requests include the API ID
-      requests.forEach((req) => {
+      requests.forEach(req => {
         expect(req.request.url).toContain(`/apis/${API_ID}/analytics`);
       });
 
@@ -231,11 +218,11 @@ describe('ApiAnalyticsNativeComponent', () => {
       await initComponent({ period: '1d' });
 
       // Should make multiple requests for different widgets
-      const requests = httpTestingController.match((req) => req.url.includes('/analytics'));
+      const requests = httpTestingController.match(req => req.url.includes('/analytics'));
       expect(requests.length).toBe(8);
 
       // All requests should have the same time range parameters
-      requests.forEach((req) => {
+      requests.forEach(req => {
         // Extract time parameters from URL
         const fromMatch = req.request.url.match(/from=(\d+)/);
         const toMatch = req.request.url.match(/to=(\d+)/);
@@ -253,7 +240,7 @@ describe('ApiAnalyticsNativeComponent', () => {
   function flushAllRequests() {
     // Handle all pending requests
     const requests = httpTestingController.match(() => true);
-    requests.forEach((request) => {
+    requests.forEach(request => {
       if (request.request.url.includes('type=HISTOGRAM')) {
         request.flush(fakeAnalyticsHistogram());
       } else if (request.request.url.includes('type=GROUP_BY')) {

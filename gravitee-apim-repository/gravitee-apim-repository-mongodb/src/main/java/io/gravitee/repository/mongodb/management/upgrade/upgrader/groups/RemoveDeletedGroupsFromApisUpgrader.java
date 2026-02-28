@@ -23,7 +23,7 @@ import io.gravitee.repository.mongodb.management.upgrade.upgrader.common.MongoUp
 import io.gravitee.repository.mongodb.management.upgrade.upgrader.environment.MissingEnvironmentUpgrader;
 import java.util.List;
 import java.util.stream.StreamSupport;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.bson.BsonNull;
 import org.bson.Document;
 import org.springframework.stereotype.Component;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
  * Remove any remaining deleted groups from APIs.
  */
 @Component
-@Slf4j
+@CustomLog
 public class RemoveDeletedGroupsFromApisUpgrader extends MongoUpgrader {
 
     public static final int REMOVE_DELETED_GROUPS_UPGRADER_ORDER = MissingEnvironmentUpgrader.MISSING_ENVIRONMENT_UPGRADER_ORDER + 1;
@@ -83,65 +83,59 @@ public class RemoveDeletedGroupsFromApisUpgrader extends MongoUpgrader {
     }
 
     private List<String> findDeletedGroups() {
-        var deletedGroupsIdsAggregateResult =
-            this.getCollection("apis")
-                .aggregate(
-                    List.of(
-                        // 1. Filter APIs with groups defined
-                        Aggregates.match(Filters.and(Filters.exists(ATTR_GROUPS, true), Filters.not(Filters.size(ATTR_GROUPS, 0)))),
-                        // 2. Keep only relevant attributes
-                        Aggregates.project(Projections.include(ATTR_ID, ATTR_GROUPS)),
-                        // 3. Join with Groups collections. "matchedGroups" contains the _id of Groups that exists
-                        new Document(
-                            "$lookup",
-                            new Document("from", ATTR_GROUPS)
-                                .append("localField", ATTR_GROUPS)
-                                .append("foreignField", ATTR_ID)
-                                .append("as", "matchedGroups")
-                                .append("pipeline", List.of(new Document("$project", new Document(ATTR_ID, 1L))))
-                        ),
-                        // 4. Make `existingGroups` a list of strings instead of documents
-                        Aggregates.project(
-                            Projections.fields(
-                                Projections.include(ATTR_ID, ATTR_GROUPS),
-                                Projections.computed("existingGroups", "$matchedGroups._id")
-                            )
-                        ),
-                        // 5. Calculate the difference between groups and existingGroups to find the deleted groups
-                        Aggregates.project(
-                            Projections.fields(
-                                Projections.include(ATTR_ID),
-                                Projections.computed("deletedGroups", new Document("$setDifference", List.of("$groups", "$existingGroups")))
-                            )
-                        ),
-                        // 6. Keep only APIs with deleted groups
-                        Aggregates.match(Filters.not(Filters.size("deletedGroups", 0))),
-                        // 7. Deconstruct the arrays
-                        Aggregates.unwind("$deletedGroups"),
-                        // 8. Group all documents and collect unique IDs
-                        new Document(
-                            "$group",
-                            new Document(ATTR_ID, new BsonNull()).append("allDeletedGroups", new Document("$addToSet", "$deletedGroups"))
-                        ),
-                        // 9. Clean up the output
-                        Aggregates.project(
-                            Projections.fields(Projections.excludeId(), Projections.computed("deletedGroups", "$allDeletedGroups"))
-                        )
+        var deletedGroupsIdsAggregateResult = this.getCollection("apis").aggregate(
+            List.of(
+                // 1. Filter APIs with groups defined
+                Aggregates.match(Filters.and(Filters.exists(ATTR_GROUPS, true), Filters.not(Filters.size(ATTR_GROUPS, 0)))),
+                // 2. Keep only relevant attributes
+                Aggregates.project(Projections.include(ATTR_ID, ATTR_GROUPS)),
+                // 3. Join with Groups collections. "matchedGroups" contains the _id of Groups that exists
+                new Document(
+                    "$lookup",
+                    new Document("from", ATTR_GROUPS)
+                        .append("localField", ATTR_GROUPS)
+                        .append("foreignField", ATTR_ID)
+                        .append("as", "matchedGroups")
+                        .append("pipeline", List.of(new Document("$project", new Document(ATTR_ID, 1L))))
+                ),
+                // 4. Make `existingGroups` a list of strings instead of documents
+                Aggregates.project(
+                    Projections.fields(
+                        Projections.include(ATTR_ID, ATTR_GROUPS),
+                        Projections.computed("existingGroups", "$matchedGroups._id")
                     )
-                );
-        return StreamSupport
-            .stream(deletedGroupsIdsAggregateResult.spliterator(), false)
+                ),
+                // 5. Calculate the difference between groups and existingGroups to find the deleted groups
+                Aggregates.project(
+                    Projections.fields(
+                        Projections.include(ATTR_ID),
+                        Projections.computed("deletedGroups", new Document("$setDifference", List.of("$groups", "$existingGroups")))
+                    )
+                ),
+                // 6. Keep only APIs with deleted groups
+                Aggregates.match(Filters.not(Filters.size("deletedGroups", 0))),
+                // 7. Deconstruct the arrays
+                Aggregates.unwind("$deletedGroups"),
+                // 8. Group all documents and collect unique IDs
+                new Document(
+                    "$group",
+                    new Document(ATTR_ID, new BsonNull()).append("allDeletedGroups", new Document("$addToSet", "$deletedGroups"))
+                ),
+                // 9. Clean up the output
+                Aggregates.project(Projections.fields(Projections.excludeId(), Projections.computed("deletedGroups", "$allDeletedGroups")))
+            )
+        );
+        return StreamSupport.stream(deletedGroupsIdsAggregateResult.spliterator(), false)
             .findFirst()
             .map(document -> document.getList("deletedGroups", String.class))
             .orElse(List.of());
     }
 
     private UpdateResult removeDeletedGroupsFromApis(List<String> deletedGroupsIds) {
-        return this.getCollection("apis")
-            .updateMany(
-                Filters.in(ATTR_GROUPS, deletedGroupsIds),
-                new Document("$pull", new Document(ATTR_GROUPS, new Document("$in", deletedGroupsIds)))
-            );
+        return this.getCollection("apis").updateMany(
+            Filters.in(ATTR_GROUPS, deletedGroupsIds),
+            new Document("$pull", new Document(ATTR_GROUPS, new Document("$in", deletedGroupsIds)))
+        );
     }
 
     @Override

@@ -39,6 +39,11 @@ import { PathToVerify, VerifyApiPathResponse } from '../entities/management-api-
 import { VerifyApiHostsResponse } from '../entities/management-api-v2/api/verifyApiHosts';
 import { ImportSwaggerDescriptor } from '../entities/management-api-v2/api/v4/importSwaggerDescriptor';
 import { MigrateToV4Response } from '../entities/management-api-v2/api/v2/migrateToV4Response';
+import { ApiProduct } from '../entities/management-api-v2/api-product/apiProduct';
+
+export interface ApiProductsForApiResponse {
+  data: ApiProduct[];
+}
 
 export interface HostValidatorParams {
   currentHost?: string;
@@ -62,7 +67,7 @@ export class ApiV2Service {
 
   get(id: string): Observable<Api> {
     return this.http.get<Api>(`${this.constants.env.v2BaseURL}/apis/${id}`).pipe(
-      tap((api) => {
+      tap(api => {
         this.lastApiFetch$.next(api);
       }),
     );
@@ -70,7 +75,7 @@ export class ApiV2Service {
 
   update(apiId: string, api: UpdateApi): Observable<Api> {
     return this.http.put<Api>(`${this.constants.env.v2BaseURL}/apis/${apiId}`, api).pipe(
-      tap((api) => {
+      tap(api => {
         this.lastApiFetch$.next(api);
       }),
     );
@@ -78,6 +83,10 @@ export class ApiV2Service {
 
   delete(apiId: string, closePlans = false): Observable<void> {
     return this.http.delete<void>(`${this.constants.env.v2BaseURL}/apis/${apiId}${closePlans ? '?closePlans=true' : ''}`);
+  }
+
+  detach(apiId: string): Observable<void> {
+    return this.http.post<void>(`${this.constants.env.v2BaseURL}/apis/${apiId}/_detach`, {});
   }
 
   start(apiId: string): Observable<void> {
@@ -122,8 +131,8 @@ export class ApiV2Service {
         },
       })
       .pipe(
-        mergeMap((blob) => from(blob.text())),
-        map((content) => {
+        mergeMap(blob => from(blob.text())),
+        map(content => {
           return new Blob([JSON.stringify(JSON.parse(content), undefined, 2)], {
             type: 'application/json',
           });
@@ -153,7 +162,7 @@ export class ApiV2Service {
     });
   }
 
-  search(searchQuery?: ApiSearchQuery, sortBy?: ApiSortByParam, page = 1, perPage = 10, manageOnly = true): Observable<ApisResponse> {
+  search(searchQuery: ApiSearchQuery = {}, sortBy?: ApiSortByParam, page = 1, perPage = 10, manageOnly = true): Observable<ApisResponse> {
     return this.http.post<ApisResponse>(`${this.constants.env.v2BaseURL}/apis/_search`, searchQuery, {
       params: {
         page,
@@ -194,7 +203,7 @@ export class ApiV2Service {
     const start = this.lastApiFetch$.value && this.lastApiFetch$.value.id === apiId ? of(this.lastApiFetch$.value) : this.get(apiId);
     return start.pipe(
       switchMap(() => this.lastApiFetch$.asObservable()),
-      filter((api) => !!api),
+      filter(api => !!api),
       distinctUntilChanged(isEqual),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
@@ -251,5 +260,10 @@ export class ApiV2Service {
         params: httpParams,
       },
     );
+  }
+
+  getApiProductsForApi(apiId: string, page = 1, perPage = 500): Observable<ApiProductsForApiResponse> {
+    const params = new HttpParams().set('page', page.toString()).set('perPage', perPage.toString());
+    return this.http.get<ApiProductsForApiResponse>(`${this.constants.env.v2BaseURL}/apis/${apiId}/api-products`, { params });
   }
 }

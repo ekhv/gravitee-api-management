@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Component, DestroyRef, OnInit, input, effect, output, computed } from '@angular/core';
+import { Component, computed, DestroyRef, effect, input, InputSignal, OnInit, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatInputModule } from '@angular/material/input';
@@ -30,12 +30,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { customTimeFrames, timeFrames } from '../../../../../../shared/utils/timeFrameRanges';
 import { GioSelectSearchComponent, SelectOption } from '../../../../../../shared/components/gio-select-search/gio-select-search.component';
-import { Plan } from '../../../../../../entities/management-api-v2';
+import { BaseApplication, Plan } from '../../../../../../entities/management-api-v2';
 import { GioTimeframeComponent } from '../../../../../../shared/components/gio-timeframe/gio-timeframe.component';
 
 interface ApiAnalyticsNativeFilterBarForm {
   timeframe: FormControl<{ period: string; from: Moment | null; to: Moment | null } | null>;
   plans: FormControl<string[] | null>;
+  applications: FormControl<string[] | null>;
 }
 
 export interface ApiAnalyticsNativeFilters {
@@ -43,6 +44,7 @@ export interface ApiAnalyticsNativeFilters {
   from?: number | null;
   to?: number | null;
   plans: string[] | null;
+  applications: string[] | null;
 }
 
 interface FilterChip {
@@ -77,11 +79,17 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
   refresh = output<void>();
 
   plans = input<Plan[]>([]);
+  applications: InputSignal<BaseApplication[]> = input<BaseApplication[]>();
   protected readonly timeFrames = [...timeFrames, ...customTimeFrames];
 
   public planOptions = computed<SelectOption[]>(() => {
     const plans = this.plans() || [];
-    return plans.map((plan) => ({ value: plan.id, label: plan.name }));
+    return plans.map(plan => ({ value: plan.id, label: plan.name }));
+  });
+
+  public applicationOptions = computed<SelectOption[]>(() => {
+    const applications = this.applications() || [];
+    return applications.map(app => ({ value: app.id, label: app.name }));
   });
 
   public currentFilterChips = computed<FilterChip[]>(() => {
@@ -90,8 +98,8 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
 
     if (filters?.plans?.length) {
       const plans = this.plans();
-      filters.plans.forEach((planId) => {
-        const plan = plans?.find((p) => p.id === planId);
+      filters.plans.forEach(planId => {
+        const plan = plans?.find(p => p.id === planId);
         const display = plan ? plan.name : planId;
         chips.push({
           key: 'plans',
@@ -99,6 +107,19 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
           display: display,
         });
       });
+    }
+
+    if (filters?.applications?.length) {
+      const applications = this.applications();
+      for (const appId of filters.applications) {
+        const application = applications?.find(p => p.id === appId);
+        const display = application ? application.name : appId;
+        chips.push({
+          key: 'applications',
+          value: appId,
+          display: display,
+        });
+      }
     }
 
     return chips;
@@ -109,6 +130,7 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
   form: FormGroup<ApiAnalyticsNativeFilterBarForm> = this.formBuilder.group({
     timeframe: this.formBuilder.control<{ period: string; from: Moment | null; to: Moment | null } | null>(null),
     plans: [null],
+    applications: [null],
   });
   customPeriod: string = 'custom';
 
@@ -124,14 +146,18 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.form.controls.timeframe.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((tf) => {
+    this.form.controls.timeframe.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(tf => {
       if (tf?.period && tf.period !== this.customPeriod) {
         this.emitFilters({ period: tf.period, from: null, to: null });
       }
     });
 
-    this.form.controls.plans.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((plans) => {
+    this.form.controls.plans.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(plans => {
       this.emitFilters({ plans });
+    });
+
+    this.form.controls.applications.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(applications => {
+      this.emitFilters({ applications });
     });
   }
 
@@ -156,7 +182,7 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
   }
 
   private removeValueFromFilter(currentList: string[] | null, value: string, formControl: FormControl<string[] | null>): void {
-    const filteredList = (currentList || []).filter((item) => item !== value);
+    const filteredList = (currentList || []).filter(item => item !== value);
     formControl.setValue(filteredList.length > 0 ? filteredList : null);
   }
 
@@ -164,10 +190,14 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
     if (key === 'plans') {
       this.removeValueFromFilter(this.form.controls.plans.value, value, this.form.controls.plans);
     }
+
+    if (key === 'applications') {
+      this.removeValueFromFilter(this.form.controls.applications.value, value, this.form.controls.applications);
+    }
   }
 
   resetAllFilters() {
-    this.emitFilters({ plans: null });
+    this.emitFilters({ plans: null, applications: null });
   }
 
   private updateFormFromFilters(filters: ApiAnalyticsNativeFilters) {
@@ -179,6 +209,7 @@ export class ApiAnalyticsNativeFilterBarComponent implements OnInit {
           to: filters.to ? moment(filters.to) : null,
         },
         plans: filters.plans,
+        applications: filters.applications,
       });
     }
   }

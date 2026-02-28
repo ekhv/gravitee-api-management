@@ -23,6 +23,7 @@ import { of } from 'rxjs';
 import { GioConfirmDialogHarness } from '@gravitee/ui-particles-angular';
 import { InteractivityChecker } from '@angular/cdk/a11y';
 import { MatSnackBarHarness } from '@angular/material/snack-bar/testing';
+import { MatTableHarness } from '@angular/material/table/testing';
 
 import { CategoryCatalogComponent } from './category.component';
 import { CategoryHarness } from './category.harness';
@@ -111,8 +112,8 @@ describe('CategoryCatalogComponent', () => {
 
     it('should be able to create', async () => {
       const spy = jest.spyOn(router, 'navigate');
-      await componentHarness.getNameInput(harnessLoader).then((input) => input.setValue('Cat'));
-      await componentHarness.getDescriptionInput(harnessLoader).then((input) => input.setValue('Cat desc'));
+      await componentHarness.getNameInput(harnessLoader).then(input => input.setValue('Cat'));
+      await componentHarness.getDescriptionInput(harnessLoader).then(input => input.setValue('Cat desc'));
 
       const saveBar = await componentHarness.getSaveBar(harnessLoader);
       expect(await saveBar.isVisible()).toEqual(true);
@@ -142,8 +143,8 @@ describe('CategoryCatalogComponent', () => {
     });
 
     it('should be able to update', async () => {
-      await componentHarness.getNameInput(harnessLoader).then((input) => input.setValue('Cat'));
-      await componentHarness.getDescriptionInput(harnessLoader).then((input) => input.setValue('Cat desc'));
+      await componentHarness.getNameInput(harnessLoader).then(input => input.setValue('Cat'));
+      await componentHarness.getDescriptionInput(harnessLoader).then(input => input.setValue('Cat desc'));
 
       const saveBar = await componentHarness.getSaveBar(harnessLoader);
       expect(await saveBar.isVisible()).toEqual(true);
@@ -167,12 +168,12 @@ describe('CategoryCatalogComponent', () => {
     it('should require name', async () => {
       const nameInput = await componentHarness.getNameInput(harnessLoader);
       expect(await nameInput.getValue()).toEqual(CATEGORY.name);
-      expect(await componentHarness.getSaveBar(harnessLoader).then((saveBar) => saveBar.isVisible())).toBeFalsy();
+      expect(await componentHarness.getSaveBar(harnessLoader).then(saveBar => saveBar.isVisible())).toBeFalsy();
       await nameInput.setValue('New name');
-      expect(await componentHarness.getSaveBar(harnessLoader).then((saveBar) => saveBar.isVisible())).toBeTruthy();
-      expect(await componentHarness.getSaveBar(harnessLoader).then((saveBar) => saveBar.isSubmitButtonInvalid())).toBeFalsy();
+      expect(await componentHarness.getSaveBar(harnessLoader).then(saveBar => saveBar.isVisible())).toBeTruthy();
+      expect(await componentHarness.getSaveBar(harnessLoader).then(saveBar => saveBar.isSubmitButtonInvalid())).toBeFalsy();
       await nameInput.setValue('');
-      expect(await componentHarness.getSaveBar(harnessLoader).then((saveBar) => saveBar.isSubmitButtonInvalid())).toBeTruthy();
+      expect(await componentHarness.getSaveBar(harnessLoader).then(saveBar => saveBar.isSubmitButtonInvalid())).toBeTruthy();
     });
   });
 
@@ -191,8 +192,9 @@ describe('CategoryCatalogComponent', () => {
 
     it('should show empty APIs', async () => {
       expectGetCategoryApis(CAT_API_LIST.id);
-      const rows = await componentHarness.getTableRows(harnessLoader);
-      expect(await rows[0].host().then((host) => host.text())).toContain('There are no APIs for this category.');
+      const table = await harnessLoader.getHarness(MatTableHarness);
+      const tableHost = await table.host();
+      expect(await tableHost.text()).toContain('There are no APIs for this category.');
     });
 
     it('should show API list', async () => {

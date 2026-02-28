@@ -33,14 +33,14 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import lombok.CustomLog;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author Guillaume LAMIRAND (guillaume.lamirand at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 @SuppressWarnings("unchecked")
 public class DefaultEntrypointConnectorResolver extends AbstractService<DefaultEntrypointConnectorResolver> {
 
@@ -52,17 +52,16 @@ public class DefaultEntrypointConnectorResolver extends AbstractService<DefaultE
         final DeploymentContext deploymentContext,
         final EntrypointConnectorPluginManager entrypointConnectorPluginManager
     ) {
-        entrypointConnectors =
-            api
-                .getListeners()
-                .stream()
-                .flatMap(listener -> listener.getEntrypoints().stream())
-                .map(entrypoint ->
-                    this.<BaseEntrypointConnector<?>>createConnector(deploymentContext, entrypointConnectorPluginManager, entrypoint)
-                )
-                .filter(Objects::nonNull)
-                .sorted(Comparator.<BaseEntrypointConnector<?>>comparingInt(BaseEntrypointConnector::matchCriteriaCount).reversed())
-                .collect(Collectors.toList());
+        entrypointConnectors = api
+            .getListeners()
+            .stream()
+            .flatMap(listener -> listener.getEntrypoints().stream())
+            .map(entrypoint ->
+                this.<BaseEntrypointConnector<?>>createConnector(deploymentContext, entrypointConnectorPluginManager, entrypoint)
+            )
+            .filter(Objects::nonNull)
+            .sorted(Comparator.<BaseEntrypointConnector<?>>comparingInt(BaseEntrypointConnector::matchCriteriaCount).reversed())
+            .collect(Collectors.toList());
     }
 
     private <T extends BaseEntrypointConnector<?>> T createConnector(

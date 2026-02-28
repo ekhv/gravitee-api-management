@@ -38,7 +38,6 @@ import io.gravitee.apim.core.api.use_case.OAIToImportApiUseCase;
 import io.gravitee.apim.core.api.use_case.ValidateApiCRDUseCase;
 import io.gravitee.apim.core.api.use_case.VerifyApiHostsUseCase;
 import io.gravitee.apim.core.api.use_case.VerifyApiPathsUseCase;
-import io.gravitee.apim.core.audit.model.AuditActor;
 import io.gravitee.apim.core.audit.model.AuditInfo;
 import io.gravitee.apim.core.utils.CollectionUtils;
 import io.gravitee.common.data.domain.Page;
@@ -54,6 +53,7 @@ import io.gravitee.rest.api.management.v2.rest.model.ApiType;
 import io.gravitee.rest.api.management.v2.rest.model.ApisResponse;
 import io.gravitee.rest.api.management.v2.rest.model.CreateApiV4;
 import io.gravitee.rest.api.management.v2.rest.model.ExportApiV4;
+import io.gravitee.rest.api.management.v2.rest.model.GenericApi;
 import io.gravitee.rest.api.management.v2.rest.model.ImportSwaggerDescriptor;
 import io.gravitee.rest.api.management.v2.rest.model.VerifyApiHosts;
 import io.gravitee.rest.api.management.v2.rest.model.VerifyApiHostsResponse;
@@ -97,13 +97,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author Florent CHAMFROY (florent.chamfroy at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 @Path("/apis")
 public class ApisResource extends AbstractResource {
 
@@ -156,30 +156,18 @@ public class ApisResource extends AbstractResource {
     @Permissions({ @Permission(value = RolePermission.ENVIRONMENT_API, acls = { RolePermissionAction.CREATE }) })
     public Response createApi(@Valid @NotNull final CreateApiV4 api) {
         // NOTE: Only for V4 API. V2 API is planned to be supported in the future.
-        var executionContext = GraviteeContext.getExecutionContext();
-        var userDetails = getAuthenticatedUserDetails();
+        AuditInfo audit = getAuditInfo();
 
-        AuditInfo audit = AuditInfo
-            .builder()
-            .organizationId(executionContext.getOrganizationId())
-            .environmentId(executionContext.getEnvironmentId())
-            .actor(
-                AuditActor
-                    .builder()
-                    .userId(userDetails.getUsername())
-                    .userSource(userDetails.getSource())
-                    .userSourceId(userDetails.getSourceId())
-                    .build()
-            )
-            .build();
         var createdApi = api.getType() == ApiType.NATIVE
             ? createNativeApiUseCase.execute(new CreateNativeApiUseCase.Input(ApiMapper.INSTANCE.mapToNewNativeApi(api), audit)).api()
             : createHttpApiUseCase.execute(new CreateHttpApiUseCase.Input(ApiMapper.INSTANCE.mapToNewHttpApi(api), audit)).api();
 
         boolean isSynchronized = apiStateDomainService.isSynchronized(createdApi, audit);
-        return Response
-            .created(this.getLocationHeader(createdApi.getId()))
-            .entity(ApiMapper.INSTANCE.map(createdApi, uriInfo, isSynchronized))
+        GenericApi.DeploymentStateEnum deploymentState = isSynchronized
+            ? GenericApi.DeploymentStateEnum.DEPLOYED
+            : GenericApi.DeploymentStateEnum.NEED_REDEPLOY;
+        return Response.created(this.getLocationHeader(createdApi.getId()))
+            .entity(ApiMapper.INSTANCE.mapToV4(createdApi, uriInfo, deploymentState))
             .build();
     }
 
@@ -200,16 +188,12 @@ public class ApisResource extends AbstractResource {
         Integer pageItemsCount = Math.toIntExact(apis.getPageElements());
         return new ApisResponse()
             .data(
-                ApiMapper.INSTANCE.map(
-                    apis.getContent(),
-                    uriInfo,
-                    api -> {
-                        if (expands == null || expands.isEmpty() || !expands.contains(EXPAND_DEPLOYMENT_STATE)) {
-                            return null;
-                        }
-                        return apiStateService.isSynchronized(GraviteeContext.getExecutionContext(), api);
+                ApiMapper.INSTANCE.map(apis.getContent(), uriInfo, api -> {
+                    if (expands == null || expands.isEmpty() || !expands.contains(EXPAND_DEPLOYMENT_STATE)) {
+                        return null;
                     }
-                )
+                    return apiStateService.isSynchronized(GraviteeContext.getExecutionContext(), api);
+                })
             )
             .pagination(PaginationInfo.computePaginationInfo(totalCount, pageItemsCount, paginationParam))
             .links(computePaginationLinks(totalCount, paginationParam));
@@ -220,25 +204,7 @@ public class ApisResource extends AbstractResource {
     @Produces(MediaType.APPLICATION_JSON)
     @Permissions({ @Permission(value = RolePermission.ENVIRONMENT_API, acls = RolePermissionAction.CREATE) })
     public Response createApiWithCRD(@Valid ApiCRDSpec crd, @QueryParam("dryRun") boolean dryRun) {
-        var executionContext = GraviteeContext.getExecutionContext();
-        var userDetails = getAuthenticatedUserDetails();
-
-        var input = new ImportApiCRDUseCase.Input(
-            AuditInfo
-                .builder()
-                .organizationId(executionContext.getOrganizationId())
-                .environmentId(executionContext.getEnvironmentId())
-                .actor(
-                    AuditActor
-                        .builder()
-                        .userId(userDetails.getUsername())
-                        .userSource(userDetails.getSource())
-                        .userSourceId(userDetails.getSourceId())
-                        .build()
-                )
-                .build(),
-            ApiMapper.INSTANCE.map(crd)
-        );
+        var input = new ImportApiCRDUseCase.Input(getAuditInfo(), ApiMapper.INSTANCE.map(crd));
 
         return dryRun
             ? Response.ok(validateApiCRDUseCase.execute(input).status()).build()
@@ -251,30 +217,14 @@ public class ApisResource extends AbstractResource {
     @Permissions({ @Permission(value = RolePermission.ENVIRONMENT_API, acls = RolePermissionAction.CREATE) })
     public Response createApiFromSwagger(@Valid @NotNull ImportSwaggerDescriptor descriptor) {
         try {
-            var userDetails = getAuthenticatedUserDetails();
-            var executionContext = GraviteeContext.getExecutionContext();
-            var audit = AuditInfo
-                .builder()
-                .organizationId(executionContext.getOrganizationId())
-                .environmentId(executionContext.getEnvironmentId())
-                .actor(
-                    AuditActor
-                        .builder()
-                        .userId(userDetails.getUsername())
-                        .userSource(userDetails.getSource())
-                        .userSourceId(userDetails.getSourceId())
-                        .build()
-                )
-                .build();
-            var importSwaggerDescriptor = ImportSwaggerDescriptorEntity
-                .builder()
+            var audit = getAuditInfo();
+            var importSwaggerDescriptor = ImportSwaggerDescriptorEntity.builder()
                 .payload(descriptor.getPayload())
                 .withDocumentation(Boolean.TRUE.equals(descriptor.getWithDocumentation()))
                 .build();
 
             OAIToImportApiUseCase.Output importOutput = oaiToImportApiUseCase.execute(
-                OAIToImportApiUseCase.Input
-                    .builder()
+                OAIToImportApiUseCase.Input.builder()
                     .importSwaggerDescriptor(importSwaggerDescriptor)
                     .auditInfo(audit)
                     .withDocumentation(Boolean.TRUE.equals(descriptor.getWithDocumentation()))
@@ -284,8 +234,7 @@ public class ApisResource extends AbstractResource {
 
             boolean isSynchronized = apiStateDomainService.isSynchronized(importOutput.apiWithFlows(), audit);
 
-            return Response
-                .created(this.getLocationHeader(importOutput.apiWithFlows().getId()))
+            return Response.created(this.getLocationHeader(importOutput.apiWithFlows().getId()))
                 .entity(ApiMapper.INSTANCE.map(importOutput.apiWithFlows(), uriInfo, isSynchronized))
                 .build();
         } catch (InvalidPathsException e) {
@@ -304,29 +253,14 @@ public class ApisResource extends AbstractResource {
         ImportDefinition importDefinition = ImportExportApiMapper.INSTANCE.toImportDefinition(apiToImport);
 
         try {
-            var userDetails = getAuthenticatedUserDetails();
-            var executionContext = GraviteeContext.getExecutionContext();
-            var audit = AuditInfo
-                .builder()
-                .organizationId(executionContext.getOrganizationId())
-                .environmentId(executionContext.getEnvironmentId())
-                .actor(
-                    AuditActor
-                        .builder()
-                        .userId(userDetails.getUsername())
-                        .userSource(userDetails.getSource())
-                        .userSourceId(userDetails.getSourceId())
-                        .build()
-                )
-                .build();
+            var audit = getAuditInfo();
             ImportApiDefinitionUseCase.Output output = importApiDefinitionUseCase.execute(
                 new ImportApiDefinitionUseCase.Input(importDefinition, audit)
             );
 
             boolean isSynchronized = apiStateDomainService.isSynchronized(output.apiWithFlows(), audit);
 
-            return Response
-                .created(this.getLocationHeader(output.apiWithFlows().getId()))
+            return Response.created(this.getLocationHeader(output.apiWithFlows().getId()))
                 .entity(ApiMapper.INSTANCE.map(output.apiWithFlows(), uriInfo, isSynchronized))
                 .build();
         } catch (InvalidPathsException e) {
@@ -395,8 +329,10 @@ public class ApisResource extends AbstractResource {
             apiQueryBuilder.addFilter(FIELD_VISIBILITY, apiSearchQuery.getVisibilities());
         }
 
-        var selectedDefinitions = Stream
-            .concat(Stream.ofNullable(apiSearchQuery.getDefinitionVersion()), stream(apiSearchQuery.getDefinitionVersions()))
+        var selectedDefinitions = Stream.concat(
+            Stream.ofNullable(apiSearchQuery.getDefinitionVersion()),
+            stream(apiSearchQuery.getDefinitionVersions())
+        )
             .filter(Objects::nonNull)
             .map(ApiMapper.INSTANCE::mapDefinitionVersion)
             .map(DefinitionVersion::getLabel)
@@ -423,10 +359,8 @@ public class ApisResource extends AbstractResource {
         Integer pageItemsCount = Math.toIntExact(apis.getPageElements());
         return new ApisResponse()
             .data(
-                ApiMapper.INSTANCE.map(
-                    apis.getContent(),
-                    uriInfo,
-                    api -> expandDeploymentState ? apiStateService.isSynchronized(GraviteeContext.getExecutionContext(), api) : null
+                ApiMapper.INSTANCE.map(apis.getContent(), uriInfo, api ->
+                    expandDeploymentState ? apiStateService.isSynchronized(GraviteeContext.getExecutionContext(), api) : null
                 )
             )
             .pagination(PaginationInfo.computePaginationInfo(totalCount, pageItemsCount, paginationParam))
@@ -447,8 +381,7 @@ public class ApisResource extends AbstractResource {
                         .getPaths()
                         .stream()
                         .map(p ->
-                            io.gravitee.apim.core.api.model.Path
-                                .builder()
+                            io.gravitee.apim.core.api.model.Path.builder()
                                 .path(p.getPath())
                                 .host(p.getHost())
                                 .overrideAccess(Boolean.TRUE.equals(p.getOverrideAccess()))

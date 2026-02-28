@@ -42,6 +42,7 @@ import { ResourceTypeService } from '../../../../shared/components/form-json-sch
 import { ApimFeature, UTMTags } from '../../../../shared/components/gio-license/gio-license-data';
 import { SharedPolicyGroupsService } from '../../../../services-ngx/shared-policy-groups.service';
 import { getApiProtocolTypeFromApi } from '../../../../entities/management-api-v2/plugin/apiProtocolType';
+import { GioPermissionService } from '../../../../shared/components/gio-permission/gio-permission.service';
 
 export type FlowSelection = { planIndex: number; flowIndex: number };
 
@@ -86,6 +87,7 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
     private readonly resourceTypeService: ResourceTypeService,
     private readonly gioLicenseService: GioLicenseService,
     private readonly changeDetectorRef: ChangeDetectorRef,
+    private readonly permissionsService: GioPermissionService,
   ) {}
 
   ngOnInit(): void {
@@ -95,22 +97,14 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
           this.isLoading = true;
           this.changeDetectorRef.detectChanges();
         }),
-        switchMap((params) =>
+        switchMap(params =>
           combineLatest([
-            this.apiV2Service.get(this.activatedRoute.snapshot.params.apiId).pipe(map((api) => api as ApiV4)),
+            this.apiV2Service.get(this.activatedRoute.snapshot.params.apiId).pipe(map(api => api as ApiV4)),
             this.connectorPluginsV2Service.listEntrypointPlugins(),
             this.connectorPluginsV2Service.listEndpointPlugins(),
             this.apiPlanV2Service
-              .list(
-                this.activatedRoute.snapshot.params.apiId,
-                undefined,
-                ['PUBLISHED'],
-                undefined,
-                1,
-                // No pagination here. Policy Studio doesn't support it for now.
-                9999,
-              )
-              .pipe(map((apiPlansResponse) => apiPlansResponse.data)),
+              .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED'], undefined, undefined, 1, 9999)
+              .pipe(map(apiPlansResponse => apiPlansResponse.data)),
             this.policyV2Service.list(),
             this.sharedPolicyGroupsService.getSharedPolicyGroupPolicyPlugin(),
             of(params),
@@ -122,12 +116,12 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
         this.apiType = api.type;
         this.flowExecution = api.flowExecution;
 
-        this.policySchemaFetcher = (policy) => this.policyV2Service.getSchema(policy.id, getApiProtocolTypeFromApi(api));
-        this.policyDocumentationFetcher = (policy) => this.policyV2Service.getDocumentation(policy.id, getApiProtocolTypeFromApi(api));
+        this.policySchemaFetcher = policy => this.policyV2Service.getSchema(policy.id, getApiProtocolTypeFromApi(api));
+        this.policyDocumentationFetcher = policy => this.policyV2Service.getDocumentation(policy.id, getApiProtocolTypeFromApi(api));
 
-        this.entrypointsInfo = api.listeners.flatMap((listener) =>
-          listener.entrypoints.map((entrypoint) => {
-            const entrypointPlugin = entrypoints.find((entrypointPlugin) => entrypointPlugin.id === entrypoint.type);
+        this.entrypointsInfo = api.listeners.flatMap(listener =>
+          listener.entrypoints.map(entrypoint => {
+            const entrypointPlugin = entrypoints.find(entrypointPlugin => entrypointPlugin.id === entrypoint.type);
             return {
               type: entrypoint.type,
               icon:
@@ -140,9 +134,9 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
           }),
         );
 
-        this.endpointsInfo = api.endpointGroups.flatMap((endpointGroup) =>
-          endpointGroup.endpoints.map((endpoint) => {
-            const endpointPlugin = endpoints.find((endpointPlugin) => endpointPlugin.id === endpoint.type);
+        this.endpointsInfo = api.endpointGroups.flatMap(endpointGroup =>
+          endpointGroup.endpoints.map(endpoint => {
+            const endpointPlugin = endpoints.find(endpointPlugin => endpointPlugin.id === endpoint.type);
             return {
               type: endpoint.type,
               icon:
@@ -155,17 +149,17 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
 
         this.commonFlows = api.flows;
 
-        this.plans = plans.map((plan) => ({
+        this.plans = plans.map(plan => ({
           id: plan.id,
           name: plan.name,
           flows: plan.flows,
         }));
 
-        this.policies = policies.map((policy) => ({
+        this.policies = policies.map(policy => ({
           ...policy,
           icon: this.iconService.registerSvg(policy.id, policy.icon),
         }));
-        this.sharedPolicyGroupPolicyPlugins = sharedPolicyGroupPolicyPlugins.map((plugin) => ({
+        this.sharedPolicyGroupPolicyPlugins = sharedPolicyGroupPolicyPlugins.map(plugin => ({
           id: plugin.id,
           name: plugin.name,
           description: plugin.description,
@@ -181,7 +175,7 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
         this.selectedFlowIndexes.planIndex = Number(params['planIndex'] ?? 0);
         this.selectedFlowIndexes.flowIndex = Number(params['flowIndex'] ?? 0);
         this.checkAndAdjustIndexes();
-        this.isReadOnly = api.definitionContext.origin === 'KUBERNETES';
+        this.isReadOnly = !this.permissionsService.hasAnyMatching(['api-definition-u']) || api.definitionContext.origin === 'KUBERNETES';
         this.isLoading = false;
       });
     this.trialURL = this.gioLicenseService.getTrialURL({ feature: ApimFeature.APIM_DEBUG_MODE, context: UTMTags.CONTEXT_API_V4 });
@@ -269,7 +263,7 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
 
         return this.apiV2Service.update(this.activatedRoute.snapshot.params.apiId, updatedApi);
       }),
-      catchError((err) => {
+      catchError(err => {
         this.snackBarService.error(err.error?.message ?? err.message);
         return EMPTY;
       }),
@@ -288,12 +282,13 @@ export class ApiV4PolicyStudioDesignComponent implements OnInit, OnDestroy {
 
           return this.apiPlanV2Service.update(this.activatedRoute.snapshot.params.apiId, apiPlan.id, updatedApiPlan);
         }),
-        catchError((err) => {
+        switchMap(() => this.apiV2Service.refreshLastApiFetch()),
+        catchError(err => {
           this.snackBarService.error(err.error?.message ?? err.message);
           return EMPTY;
         }),
       );
 
-    return forkJoin(plans.map((plan) => updatePlan$(plan)));
+    return forkJoin(plans.map(plan => updatePlan$(plan)));
   }
 }

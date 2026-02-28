@@ -17,7 +17,6 @@ package io.gravitee.repository.jdbc.management;
 
 import static io.gravitee.repository.jdbc.management.JdbcHelper.AND_CLAUSE;
 import static io.gravitee.repository.jdbc.management.JdbcHelper.WHERE_CLAUSE;
-import static io.gravitee.repository.jdbc.management.JdbcHelper.addCondition;
 import static io.gravitee.repository.jdbc.management.JdbcHelper.addStringsWhereClause;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -52,7 +51,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.stereotype.Repository;
@@ -62,7 +61,7 @@ import org.springframework.util.CollectionUtils;
  *
  * @author njt
  */
-@Slf4j
+@CustomLog
 @Repository
 public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> implements EventRepository {
 
@@ -79,8 +78,7 @@ public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> i
 
     @Override
     protected JdbcObjectMapper<Event> buildOrm() {
-        return JdbcObjectMapper
-            .builder(Event.class, this.tableName, "id")
+        return JdbcObjectMapper.builder(Event.class, this.tableName, "id")
             .addColumn("id", Types.NVARCHAR, String.class)
             .addColumn("created_at", Types.TIMESTAMP, Date.class)
             .addColumn("type", Types.NVARCHAR, EventType.class)
@@ -248,8 +246,9 @@ public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> i
             storeProperties(event, true);
             storeEnvironments(event, true);
             storeOrganizations(event, true);
-            return findById(event.getId())
-                .orElseThrow(() -> new IllegalStateException(format("No event found with id [%s]", event.getId())));
+            return findById(event.getId()).orElseThrow(() ->
+                new IllegalStateException(format("No event found with id [%s]", event.getId()))
+            );
         } catch (final IllegalStateException ex) {
             throw ex;
         } catch (final Exception ex) {
@@ -357,33 +356,24 @@ public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> i
 
             String propertiesDeleteQuery =
                 "delete from " + EVENT_PROPERTIES + " where event_id in (" + getOrm().buildInClause(eventToDelete) + ")";
-            jdbcTemplate.update(
-                propertiesDeleteQuery,
-                (PreparedStatement ps) -> {
-                    getOrm().setArguments(ps, eventToDelete, 1);
-                }
-            );
+            jdbcTemplate.update(propertiesDeleteQuery, (PreparedStatement ps) -> {
+                getOrm().setArguments(ps, eventToDelete, 1);
+            });
 
             String environmentsDeleteQuery =
                 "delete from " + EVENT_ENVIRONMENTS + " where event_id in (" + getOrm().buildInClause(eventToDelete) + ")";
-            jdbcTemplate.update(
-                environmentsDeleteQuery,
-                (PreparedStatement ps) -> {
-                    getOrm().setArguments(ps, eventToDelete, 1);
-                }
-            );
+            jdbcTemplate.update(environmentsDeleteQuery, (PreparedStatement ps) -> {
+                getOrm().setArguments(ps, eventToDelete, 1);
+            });
 
             String organizationsDeleteQuery =
                 "delete from " + EVENT_ORGANIZATIONS + " where event_id in (" + getOrm().buildInClause(eventToDelete) + ")";
             jdbcTemplate.update(organizationsDeleteQuery, (PreparedStatement ps) -> getOrm().setArguments(ps, eventToDelete, 1));
 
             String eventsDeleteQuery = "delete from " + this.tableName + " where id in (" + getOrm().buildInClause(eventToDelete) + ")";
-            return jdbcTemplate.update(
-                eventsDeleteQuery,
-                (PreparedStatement ps) -> {
-                    getOrm().setArguments(ps, eventToDelete, 1);
-                }
-            );
+            return jdbcTemplate.update(eventsDeleteQuery, (PreparedStatement ps) -> {
+                getOrm().setArguments(ps, eventToDelete, 1);
+            });
         } catch (final Exception ex) {
             String error = String.format("An error occurred when deleting all events of API %s", apiId);
             log.error(error, apiId);
@@ -433,7 +423,10 @@ public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> i
                     // Create event with basic info
                     Event event = new Event();
                     event.setId(eventId);
-                    EventType eventType = Arrays.stream(EventType.values()).filter(e -> e.name().equals(type)).findFirst().orElse(null);
+                    EventType eventType = Arrays.stream(EventType.values())
+                        .filter(e -> e.name().equals(type))
+                        .findFirst()
+                        .orElse(null);
                     event.setType(eventType);
 
                     // Initialize properties map
@@ -559,14 +552,24 @@ public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> i
             started = true;
         }
         if (!isEmpty(filter.getEnvironments())) {
-            started =
-                addStringsWhereClause(filter.getEnvironments(), eventEnvironmentTableAlias + ".environment_id", args, builder, started);
+            started = addStringsWhereClause(
+                filter.getEnvironments(),
+                eventEnvironmentTableAlias + ".environment_id",
+                args,
+                builder,
+                started
+            );
             builder.insert(builder.lastIndexOf(")"), " or " + eventEnvironmentTableAlias + ".environment_id IS NULL");
         }
 
         if (!isEmpty(filter.getOrganizations())) {
-            started =
-                addStringsWhereClause(filter.getOrganizations(), eventOrganizationTableAlias + ".organization_id", args, builder, started);
+            started = addStringsWhereClause(
+                filter.getOrganizations(),
+                eventOrganizationTableAlias + ".organization_id",
+                args,
+                builder,
+                started
+            );
             builder.insert(builder.lastIndexOf(")"), " or " + eventOrganizationTableAlias + ".organization_id IS NULL");
         }
 
@@ -584,25 +587,69 @@ public class JdbcEventRepository extends JdbcAbstractPageableRepository<Event> i
         String tableAlias
     ) {
         if (!isEmpty(filter.getProperties())) {
-            builder
-                .append(" left join ")
-                .append(propertiesTableName)
-                .append(" prop on prop.event_id = ")
-                .append(tableAlias)
-                .append(".id ")
-                .append(WHERE_CLAUSE)
-                .append("(");
-            boolean first = true;
+            builder.append(WHERE_CLAUSE);
+            int propertyIndex = 0;
             for (Map.Entry<String, Object> property : filter.getProperties().entrySet()) {
-                if (property.getValue() instanceof Collection) {
-                    for (Object value : (Collection) property.getValue()) {
-                        first = addCondition(first, builder, property.getKey(), value, args);
-                    }
-                } else {
-                    first = addCondition(first, builder, property.getKey(), property.getValue(), args);
+                if (propertyIndex > 0) {
+                    builder.append(AND_CLAUSE);
                 }
+
+                final String propertyAlias = "prop_filter_" + propertyIndex;
+                builder
+                    .append("exists (select 1 from ")
+                    .append(propertiesTableName)
+                    .append(" ")
+                    .append(propertyAlias)
+                    .append(" where ")
+                    .append(propertyAlias)
+                    .append(".event_id = ")
+                    .append(tableAlias)
+                    .append(".id and ")
+                    .append(propertyAlias)
+                    .append(".property_key = ?");
+                args.add(property.getKey());
+
+                if (property.getValue() instanceof Collection<?> collection) {
+                    boolean hasNull = false;
+                    List<Object> nonNullValues = new ArrayList<>();
+                    for (Object value : collection) {
+                        if (value == null) {
+                            hasNull = true;
+                        } else {
+                            nonNullValues.add(value);
+                        }
+                    }
+
+                    builder.append(" and (");
+                    boolean appendOr = false;
+                    if (!nonNullValues.isEmpty()) {
+                        builder.append(propertyAlias).append(".property_value in (");
+                        for (int i = 0; i < nonNullValues.size(); i++) {
+                            if (i > 0) {
+                                builder.append(", ");
+                            }
+                            builder.append("?");
+                            args.add(nonNullValues.get(i));
+                        }
+                        builder.append(")");
+                        appendOr = true;
+                    }
+                    if (hasNull) {
+                        if (appendOr) {
+                            builder.append(" or ");
+                        }
+                        builder.append(propertyAlias).append(".property_value is null");
+                    }
+                    builder.append(")");
+                } else if (property.getValue() == null) {
+                    builder.append(" and ").append(propertyAlias).append(".property_value is null");
+                } else {
+                    builder.append(" and ").append(propertyAlias).append(".property_value = ?");
+                    args.add(property.getValue());
+                }
+                builder.append(")");
+                propertyIndex++;
             }
-            builder.append(")");
             return true;
         }
         return false;

@@ -33,6 +33,8 @@ export interface ApiMetricsDetailResponse {
   plan: BasePlan;
   application: BaseApplication;
   gateway: string;
+  gatewayHostname?: string;
+  gatewayIp?: string;
   uri: string;
   status: number;
   requestContentLength: number;
@@ -48,4 +50,5 @@ export interface ApiMetricsDetailResponse {
   errorComponentName?: string;
   errorComponentType?: string;
   warnings?: ConnectionLogDiagnostic[];
+  additionalMetrics?: { [key: string]: string };
 }

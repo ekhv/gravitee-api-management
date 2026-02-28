@@ -36,15 +36,13 @@ import {
   ApiState,
   ApiV2,
   ApiV4,
-  HttpListener,
-  KafkaListener,
   Listener,
   ListenerType,
   Origin,
   PagedResult,
-  TcpListener,
 } from '../../../entities/management-api-v2';
 import { CategoryService } from '../../../services-ngx/category.service';
+import { getApiAccess } from '../../../shared/utils';
 
 export enum FilterType {
   API_TYPE,
@@ -138,7 +136,7 @@ export class ApiListComponent implements OnInit, OnDestroy {
     apiType: true,
     states: true,
     access: true,
-    qualityScore: true,
+    qualityScore: false,
     tags: true,
     categories: true,
     owner: true,
@@ -166,10 +164,14 @@ export class ApiListComponent implements OnInit, OnDestroy {
     this.isQualityDisplayed = this.constants.env.settings.apiQualityMetrics && this.constants.env.settings.apiQualityMetrics.enabled;
     if (this.isQualityDisplayed) {
       this.displayedColumns.splice(5, 0, 'qualityScore');
+      this.checkedVisibleColumns.qualityScore = true;
     }
 
     if (localStorage.getItem(`${this.constants.org.currentEnv.id}-api-list-visible-columns`)) {
-      const storedColumns = JSON.parse(localStorage.getItem(`${this.constants.org.currentEnv.id}-api-list-visible-columns`));
+      let storedColumns = JSON.parse(localStorage.getItem(`${this.constants.org.currentEnv.id}-api-list-visible-columns`));
+      if (!this.isQualityDisplayed && storedColumns.includes('qualityScore')) {
+        storedColumns = storedColumns.filter(item => item !== 'qualityScore');
+      }
       this.displayedColumns = storedColumns;
       this.checkedVisibleColumns = {
         apiType: this.displayedColumns.includes('apiType'),
@@ -189,7 +191,7 @@ export class ApiListComponent implements OnInit, OnDestroy {
     this.tagService
       .list()
       .pipe(
-        map((tags) => (this.tags = tags.map((tag) => tag.id))),
+        map(tags => (this.tags = tags.map(tag => tag.id))),
         takeUntil(this.unsubscribe$),
       )
       .subscribe();
@@ -197,7 +199,7 @@ export class ApiListComponent implements OnInit, OnDestroy {
     this.categoryService
       .list()
       .pipe(
-        map((cats) => cats.forEach((cat) => this.categoriesNames.set(cat.key, cat.name))),
+        map(cats => cats.forEach(cat => this.categoriesNames.set(cat.key, cat.name))),
         takeUntil(this.unsubscribe$),
       )
       .subscribe();
@@ -253,7 +255,7 @@ export class ApiListComponent implements OnInit, OnDestroy {
             .search(body, apiSortByParamFromString(order), filters.pagination.index, filters.pagination.size)
             .pipe(catchError(() => of(new PagedResult<Api>())));
         }),
-        tap((apisPage) => {
+        tap(apisPage => {
           this.apisTableDS = this.toApisTableDS(apisPage);
           this.apisTableDSUnpaginatedLength = apisPage.pagination.totalCount;
           this.isLoadingData = false;
@@ -352,7 +354,7 @@ export class ApiListComponent implements OnInit, OnDestroy {
 
   private toApisTableDS(apisResponse: ApisResponse): ApisTableDS {
     return apisResponse?.pagination?.totalCount > 0
-      ? apisResponse.data.map((api) => {
+      ? apisResponse.data.map(api => {
           const tableDS = {
             id: api.id,
             name: api.name,
@@ -368,12 +370,12 @@ export class ApiListComponent implements OnInit, OnDestroy {
             owner: api.primaryOwner?.displayName,
             ownerEmail: api.primaryOwner?.email,
             picture: api._links.pictureUrl,
-            categories: (api.categories ?? []).map((cat) => this.categoriesNames.get(cat)),
+            categories: (api.categories ?? []).map(cat => this.categoriesNames.get(cat)),
           };
           if (api.definitionVersion === 'V4') {
             return {
               ...tableDS,
-              access: this.getApiAccess(api),
+              access: getApiAccess(api),
               isNotSynced$: undefined,
               qualityScore$: null,
             };
@@ -389,10 +391,10 @@ export class ApiListComponent implements OnInit, OnDestroy {
             const apiv2 = api as ApiV2;
             return {
               ...tableDS,
-              access: this.getApiAccess(apiv2),
-              isNotSynced$: this.apiService.isAPISynchronized(apiv2.id).pipe(map((a) => !a.is_synchronized)),
+              access: getApiAccess(apiv2),
+              isNotSynced$: this.apiService.isAPISynchronized(apiv2.id).pipe(map(a => !a.is_synchronized)),
               qualityScore$: this.isQualityDisplayed
-                ? this.apiService.getQualityMetrics(apiv2.id).pipe(map((a) => this.getQualityScore(Math.floor(a.score * 100))))
+                ? this.apiService.getQualityMetrics(apiv2.id).pipe(map(a => this.getQualityScore(Math.floor(a.score * 100))))
                 : null,
             };
           }
@@ -403,12 +405,9 @@ export class ApiListComponent implements OnInit, OnDestroy {
   private getDefinitionVersion(api: Api) {
     switch (api.definitionVersion) {
       case 'V2':
-        return { label: this.titleCasePipe.transform(api.definitionVersion) };
+        return { label: 'V2 HTTP Proxy' };
       case 'V4':
-        if ((api as ApiV4).type === 'NATIVE') {
-          return { label: `${api.definitionVersion} -${this.getLabelType(api)}` };
-        }
-        return { label: `${api.definitionVersion} -${this.getLabelType(api)} ${this.titleCasePipe.transform((api as ApiV4).type)}` };
+        return { label: this.getLabelType(api) };
       case 'FEDERATED':
         return { label: 'Federated API' };
       case 'FEDERATED_AGENT':
@@ -418,20 +417,24 @@ export class ApiListComponent implements OnInit, OnDestroy {
     }
   }
 
-  private getLabelType(api: Api): string {
-    if ((api as ApiV4).type === 'MESSAGE') {
-      return '';
+  private getLabelType(api: ApiV4): string {
+    if (api.type === 'MESSAGE') {
+      return 'Message';
+    }
+    if (api.type === 'NATIVE') {
+      return api.listeners.map((listener: Listener): ListenerType => listener.type).includes('KAFKA') ? 'Kafka Native' : 'Native';
+    }
+    if (api.type === 'MCP_PROXY') {
+      return 'MCP Proxy';
+    }
+    if (api.type === 'LLM_PROXY') {
+      return 'LLM Proxy';
+    }
+    if (api.type === 'A2A_PROXY') {
+      return 'A2A Proxy';
     }
 
-    if (api.definitionVersion === 'V4') {
-      if (api.type === 'NATIVE') {
-        return api.listeners.map((listener: Listener): ListenerType => listener.type).includes('KAFKA') ? ' Kafka' : '';
-      }
-
-      return api.listeners.map((listener: Listener): ListenerType => listener.type).includes('TCP') ? ' TCP' : ' HTTP';
-    }
-
-    return '';
+    return api.listeners.map((listener: Listener): ListenerType => listener.type).includes('TCP') ? 'TCP Proxy' : 'HTTP Proxy';
   }
 
   displayFirstTag(element) {
@@ -471,34 +474,5 @@ export class ApiListComponent implements OnInit, OnDestroy {
       }
     }
     return { score, class: qualityClass };
-  }
-
-  private getApiAccess(api: ApiV4 | ApiV2): string[] | null {
-    if (api.definitionVersion === 'V4') {
-      if (api.type === 'NATIVE') {
-        const kafkaListenerHosts = api.listeners
-          .filter((listener) => listener.type === 'KAFKA')
-          .map((kafkaListener: KafkaListener) => {
-            const host = kafkaListener.host ?? '';
-            const port = kafkaListener.port ? `:${kafkaListener.port}` : '';
-            return `${host}${port}`;
-          });
-
-        return kafkaListenerHosts.length > 0 ? kafkaListenerHosts : null;
-      }
-
-      const tcpListenerHosts = api.listeners
-        .filter((listener) => listener.type === 'TCP')
-        .flatMap((listener: TcpListener) => listener.hosts);
-
-      const httpListenerPaths = api.listeners
-        .filter((listener) => listener.type === 'HTTP')
-        .map((listener: HttpListener) => listener.paths.map((path) => `${path.host ?? ''}${path.path}`))
-        .flat();
-
-      return tcpListenerHosts.length > 0 ? tcpListenerHosts : httpListenerPaths.length > 0 ? httpListenerPaths : null;
-    }
-
-    return api.proxy.virtualHosts?.length > 0 ? api.proxy.virtualHosts.map((vh) => `${vh.host ?? ''}${vh.path}`) : [api.contextPath];
   }
 }

@@ -50,10 +50,8 @@ public class SearchRequestsCountByEventQueryAdapterTest {
 
         assertEquals(0, node.at("/size").asInt());
         assertEquals("api-123", node.at("/query/bool/must/0/term/api-id").asText());
-        assertEquals(1650000000000L, node.at("/query/bool/must/1/range/@timestamp/from").asLong());
-        assertTrue(node.at("/query/bool/must/1/range/@timestamp/include_lower").asBoolean());
-        assertEquals(1650003600000L, node.at("/query/bool/must/1/range/@timestamp/to").asLong());
-        assertTrue(node.at("/query/bool/must/1/range/@timestamp/include_upper").asBoolean());
+        assertEquals(1650000000000L, node.at("/query/bool/must/1/range/@timestamp/gte").asLong());
+        assertEquals(1650003600000L, node.at("/query/bool/must/1/range/@timestamp/lte").asLong());
     }
 
     @Test
@@ -97,7 +95,12 @@ public class SearchRequestsCountByEventQueryAdapterTest {
         var mustArray = boolQuery.getJsonArray("must");
 
         assertEquals(3, mustArray.size());
-        JsonObject termEntry = mustArray.stream().map(JsonObject.class::cast).filter(o -> o.containsKey("term")).findFirst().orElseThrow();
+        JsonObject termEntry = mustArray
+            .stream()
+            .map(JsonObject.class::cast)
+            .filter(o -> o.containsKey("term"))
+            .findFirst()
+            .orElseThrow();
         JsonObject queryEntry = mustArray
             .stream()
             .map(JsonObject.class::cast)

@@ -48,8 +48,8 @@ describe('ClusterService', () => {
   });
 
   describe('get', () => {
-    it('should call the API', (done) => {
-      service.get(fakeCluster().id).subscribe((cluster) => {
+    it('should call the API', done => {
+      service.get(fakeCluster().id).subscribe(cluster => {
         expect(cluster).toBeTruthy();
         done();
       });
@@ -59,8 +59,8 @@ describe('ClusterService', () => {
   });
 
   describe('create', () => {
-    it('should call the API', (done) => {
-      service.create(fakeCreateCluster()).subscribe((cluster) => {
+    it('should call the API', done => {
+      service.create(fakeCreateCluster()).subscribe(cluster => {
         expect(cluster).toBeTruthy();
         done();
       });
@@ -70,8 +70,8 @@ describe('ClusterService', () => {
   });
 
   describe('update', () => {
-    it('should call the API', (done) => {
-      service.update('clusterId', fakeUpdateCluster()).subscribe((cluster) => {
+    it('should call the API', done => {
+      service.update('clusterId', fakeUpdateCluster()).subscribe(cluster => {
         expect(cluster).toBeTruthy();
         done();
       });
@@ -81,9 +81,9 @@ describe('ClusterService', () => {
   });
 
   describe('updateGroups', () => {
-    it('should call the API', (done) => {
+    it('should call the API', done => {
       const groupId = ['group1', 'group2'];
-      service.updateGroups('clusterId', groupId).subscribe((cluster) => {
+      service.updateGroups('clusterId', groupId).subscribe(cluster => {
         expect(cluster).toBeTruthy();
         done();
       });
@@ -93,7 +93,7 @@ describe('ClusterService', () => {
   });
 
   describe('delete', () => {
-    it('should call the API', (done) => {
+    it('should call the API', done => {
       service.delete('clusterId').subscribe(() => {
         done();
       });
@@ -102,8 +102,8 @@ describe('ClusterService', () => {
   });
 
   describe('list', () => {
-    it('should call the API', (done) => {
-      service.list().subscribe((clusters) => {
+    it('should call the API', done => {
+      service.list().subscribe(clusters => {
         expect(clusters.data.length).toEqual(1);
         done();
       });
@@ -112,10 +112,21 @@ describe('ClusterService', () => {
     });
   });
 
+  describe('getConfigurationSchema', () => {
+    it('should call the API', done => {
+      service.getConfigurationSchema().subscribe(schema => {
+        expect(schema).toBeTruthy();
+        done();
+      });
+
+      expectGetConfigurationSchemaRequest(httpTestingController);
+    });
+  });
+
   describe('getPermissions', () => {
-    it('should call the API', (done) => {
+    it('should call the API', done => {
       const cluster = fakeCluster();
-      service.getPermissions(cluster.id).subscribe((permissions) => {
+      service.getPermissions(cluster.id).subscribe(permissions => {
         expect(permissions).toBeTruthy();
         done();
       });
@@ -190,4 +201,10 @@ export const expectGetClusterPermissionsRequest = (
   const req = httpTestingController.expectOne(`${CONSTANTS_TESTING.env.v2BaseURL}/clusters/${clusterId}/permissions`);
   expect(req.request.method).toEqual('GET');
   req.flush(permissions);
+};
+
+export const expectGetConfigurationSchemaRequest = (httpTestingController: HttpTestingController, schema: unknown = {}) => {
+  const req = httpTestingController.expectOne(`${CONSTANTS_TESTING.env.v2BaseURL}/clusters/schema/configuration`);
+  expect(req.request.method).toEqual('GET');
+  req.flush(schema);
 };

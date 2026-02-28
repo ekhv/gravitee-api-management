@@ -38,14 +38,14 @@ import io.gravitee.rest.api.service.exceptions.AbstractManagementException;
 import io.gravitee.rest.api.service.exceptions.ApplicationNotFoundException;
 import io.gravitee.rest.api.service.exceptions.TechnicalManagementException;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author Kamiel Ahmadpour (kamiel.ahmadpour at graviteesource.com)
  * @author GraviteeSource Team
  */
 @UseCase
-@Slf4j
+@CustomLog
 public class ImportApplicationCRDUseCase {
 
     private final ApplicationCrudService applicationCrudService;
@@ -108,8 +108,7 @@ public class ImportApplicationCRDUseCase {
                 sanitizedInput.crd.getMembers()
             );
 
-            return ApplicationCRDStatus
-                .builder()
+            return ApplicationCRDStatus.builder()
                 .id(newApplication.getId())
                 .organizationId(sanitizedInput.auditInfo.organizationId())
                 .environmentId(sanitizedInput.auditInfo.environmentId())
@@ -139,13 +138,12 @@ public class ImportApplicationCRDUseCase {
                 sanitizedInput.crd.getMembers()
             );
 
-            return ApplicationCRDStatus
-                .builder()
+            return ApplicationCRDStatus.builder()
                 .id(updatedApplication.getId())
                 .organizationId(sanitizedInput.auditInfo.organizationId())
                 .environmentId(sanitizedInput.auditInfo.environmentId())
                 .build();
-        } catch (AbstractDomainException e) {
+        } catch (AbstractDomainException | AbstractManagementException e) {
             throw e;
         } catch (Exception e) {
             throw new TechnicalManagementException(e);

@@ -15,6 +15,7 @@
  */
 package io.gravitee.rest.api.service.impl;
 
+import static io.gravitee.rest.api.service.impl.PageServiceImplTests.executionContext;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,7 +24,6 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.util.ReflectionTestUtils.setField;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import freemarker.template.TemplateException;
@@ -33,8 +33,11 @@ import io.gravitee.repository.management.api.PageRepository;
 import io.gravitee.repository.management.model.Page;
 import io.gravitee.repository.management.model.PageReferenceType;
 import io.gravitee.rest.api.model.*;
+import io.gravitee.rest.api.model.settings.OpenAPIDocViewer;
+import io.gravitee.rest.api.model.settings.PortalSettingsEntity;
 import io.gravitee.rest.api.service.ApiService;
 import io.gravitee.rest.api.service.AuditService;
+import io.gravitee.rest.api.service.ConfigService;
 import io.gravitee.rest.api.service.MetadataService;
 import io.gravitee.rest.api.service.PageRevisionService;
 import io.gravitee.rest.api.service.common.ExecutionContext;
@@ -106,6 +109,18 @@ public class PageService_CreateTest {
     private ApiTemplateService apiTemplateService;
 
     @Mock
+    private ConfigService configService;
+
+    @Mock
+    private PortalSettingsEntity portalSettings;
+
+    @Mock
+    private OpenAPIDocViewer openAPIDocViewer;
+
+    @Mock
+    private OpenAPIDocViewer.OpenAPIDocType openAPIDocType;
+
+    @Mock
     private HtmlSanitizer htmlSanitizer;
 
     private PageEntity getPage(String resource, String contentType) throws IOException {
@@ -148,9 +163,9 @@ public class PageService_CreateTest {
 
         final PageEntity createdPage = pageService.createPage(new ExecutionContext("DEFAULT", "envId"), API_ID, newPage);
 
-        verify(pageRepository)
-            .create(
-                argThat(pageToCreate ->
+        verify(pageRepository).create(
+            argThat(
+                pageToCreate ->
                     pageToCreate.getId().split("-").length == 5 &&
                     API_ID.equals(pageToCreate.getReferenceId()) &&
                     PageReferenceType.API.equals(pageToCreate.getReferenceType()) &&
@@ -162,8 +177,8 @@ public class PageService_CreateTest {
                     pageToCreate.getCreatedAt() != null &&
                     pageToCreate.getUpdatedAt() != null &&
                     pageToCreate.getCreatedAt().equals(pageToCreate.getUpdatedAt())
-                )
-            );
+            )
+        );
         assertNotNull(createdPage);
         assertEquals(5, createdPage.getId().split("-").length);
         assertEquals(1, createdPage.getOrder());
@@ -179,8 +194,9 @@ public class PageService_CreateTest {
         final String name = "PAGE_NAME";
         when(newPage.getName()).thenReturn(name);
         when(newPage.getType()).thenReturn(PageType.SWAGGER);
-        when(newPage.getContent())
-            .thenReturn(getPage("io/gravitee/rest/api/management/service/swagger-v1.json", MediaType.APPLICATION_JSON).getContent());
+        when(newPage.getContent()).thenReturn(
+            getPage("io/gravitee/rest/api/management/service/swagger-v1.json", MediaType.APPLICATION_JSON).getContent()
+        );
         when(newPage.getVisibility()).thenReturn(Visibility.PUBLIC);
 
         when(pageRepository.create(any(Page.class))).thenThrow(TechnicalException.class);
@@ -500,14 +516,13 @@ public class PageService_CreateTest {
 
         when(
             this.notificationTemplateService.resolveInlineTemplateWithParam(
-                    anyString(),
-                    anyString(),
-                    eq(newTranslation.getContent()),
-                    any(),
-                    anyBoolean()
-                )
-        )
-            .thenReturn(newTranslation.getContent());
+                anyString(),
+                anyString(),
+                eq(newTranslation.getContent()),
+                any(),
+                anyBoolean()
+            )
+        ).thenReturn(newTranslation.getContent());
 
         pageService.createPage(new ExecutionContext("DEFAULT", "DEFAULT"), newTranslation);
         verify(pageRepository, never()).create(any());
@@ -546,8 +561,9 @@ public class PageService_CreateTest {
         when(newPage.getLastContributor()).thenReturn(contrib);
         when(newPage.getType()).thenReturn(PageType.MARKDOWN);
         when(newPage.getVisibility()).thenReturn(Visibility.PUBLIC);
-        when(this.notificationTemplateService.resolveInlineTemplateWithParam(anyString(), anyString(), eq(content), any(), anyBoolean()))
-            .thenReturn(content);
+        when(
+            this.notificationTemplateService.resolveInlineTemplateWithParam(anyString(), anyString(), eq(content), any(), anyBoolean())
+        ).thenReturn(content);
         when(htmlSanitizer.isSafe(anyString())).thenReturn(new HtmlSanitizer.SanitizeInfos(false, "Tag not allowed: script"));
 
         this.pageService.createPage(GraviteeContext.getExecutionContext(), API_ID, newPage);
@@ -582,8 +598,9 @@ public class PageService_CreateTest {
 
         when(pageRepository.create(any())).thenReturn(page1);
 
-        when(this.notificationTemplateService.resolveInlineTemplateWithParam(anyString(), anyString(), eq(content), any(), anyBoolean()))
-            .thenThrow(new TemplateProcessingException(new TemplateException(null)));
+        when(
+            this.notificationTemplateService.resolveInlineTemplateWithParam(anyString(), anyString(), eq(content), any(), anyBoolean())
+        ).thenThrow(new TemplateProcessingException(new TemplateException(null)));
         this.pageService.createPage(GraviteeContext.getExecutionContext(), API_ID, newPage);
 
         verify(pageRepository).create(any());
@@ -597,5 +614,31 @@ public class PageService_CreateTest {
         when(newPage.getSource()).thenReturn(source);
         when(newPage.getVisibility()).thenReturn(Visibility.PUBLIC);
         pageService.createPage(GraviteeContext.getExecutionContext(), API_ID, newPage);
+    }
+
+    @Test
+    public void shouldApplySelectedDefaultViewerToNewSwaggerPage() throws TechnicalException {
+        when(configService.getPortalSettings(any())).thenReturn(portalSettings);
+        when(portalSettings.getOpenAPIDocViewer()).thenReturn(openAPIDocViewer);
+        when(openAPIDocViewer.getOpenAPIDocType()).thenReturn(openAPIDocType);
+        when(openAPIDocType.getDefaultType()).thenReturn("redoc");
+
+        NewPageEntity newPage = new NewPageEntity();
+        newPage.setType(PageType.SWAGGER);
+        newPage.setConfiguration(new HashMap<>());
+
+        Page repoPage = new Page();
+        repoPage.setId("ID");
+        repoPage.setType(PageType.SWAGGER.name());
+        repoPage.setReferenceType(PageReferenceType.API);
+        repoPage.setReferenceId(API_ID);
+        repoPage.setVisibility(Visibility.PUBLIC.name());
+        repoPage.setContent("test");
+        repoPage.setName("Swagger Page");
+        repoPage.setOrder(1);
+        when(pageRepository.create(any())).thenReturn(repoPage);
+        pageService.createPage(executionContext, API_ID, newPage);
+
+        verify(pageRepository).create(argThat(page -> "redoc".equals(page.getConfiguration().get(PageConfigurationKeys.SWAGGER_VIEWER))));
     }
 }

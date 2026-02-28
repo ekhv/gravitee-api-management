@@ -24,7 +24,6 @@ import io.gravitee.apim.core.api.model.utils.MigrationResult;
 import io.gravitee.apim.core.api.model.utils.MigrationWarnings;
 import io.gravitee.apim.core.utils.StringUtils;
 import io.gravitee.definition.model.services.discovery.EndpointDiscoveryService;
-import io.gravitee.definition.model.services.discovery.EndpointDiscoveryService;
 import io.gravitee.definition.model.services.dynamicproperty.DynamicPropertyProvider;
 import io.gravitee.definition.model.services.dynamicproperty.DynamicPropertyService;
 import io.gravitee.definition.model.services.dynamicproperty.http.HttpDynamicPropertyProviderConfiguration;
@@ -33,10 +32,10 @@ import io.gravitee.definition.model.services.healthcheck.HealthCheckService;
 import io.gravitee.definition.model.services.healthcheck.HealthCheckStep;
 import io.gravitee.definition.model.v4.service.Service;
 import java.util.List;
+import lombok.CustomLog;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
+@CustomLog
 @RequiredArgsConstructor
 public final class ApiServicesMigration {
 
@@ -78,12 +77,8 @@ public final class ApiServicesMigration {
             Service.builder().enabled(v2HealthCheckService.isEnabled()).overrideConfiguration(false).type("http-health-check").build()
         );
         String endpointReferenceForMessage = String.format("%s : %s", type.equals(TYPE_ENDPOINT) ? "endpoint" : "endpointgroup", name);
-        if (v2HealthCheckService.getSchedule() != null) {
-            config.put("schedule", v2HealthCheckService.getSchedule());
-        } else {
-            config.putNull("schedule");
-        }
 
+        config.put("schedule", v2HealthCheckService.getSchedule());
         config.put("failureThreshold", 2);
         config.put("successThreshold", 2);
 
@@ -102,11 +97,9 @@ public final class ApiServicesMigration {
                 try {
                     config.set(
                         "headers",
-                        (
-                            step.getRequest().getHeaders() == null
+                        (step.getRequest().getHeaders() == null
                                 ? jsonMapper.createArrayNode()
-                                : jsonMapper.valueToTree(step.getRequest().getHeaders())
-                        )
+                                : jsonMapper.valueToTree(step.getRequest().getHeaders()))
                     );
                     config.set("method", jsonMapper.valueToTree(step.getRequest().getMethod()));
                     config.set("target", jsonMapper.valueToTree(step.getRequest().getPath()));
@@ -141,11 +134,10 @@ public final class ApiServicesMigration {
         String type,
         String name
     ) {
-        return convertHealthCheckService(v2EPHealthCheckService, type, name)
-            .map(plainHealthCheckService -> {
-                plainHealthCheckService.setOverrideConfiguration(!v2EPHealthCheckService.isInherit());
-                return plainHealthCheckService;
-            });
+        return convertHealthCheckService(v2EPHealthCheckService, type, name).map(plainHealthCheckService -> {
+            plainHealthCheckService.setOverrideConfiguration(!v2EPHealthCheckService.isInherit());
+            return plainHealthCheckService;
+        });
     }
 
     private MigrationResult<io.gravitee.definition.model.v4.service.Service> convertDynamicPropertyService(
@@ -156,8 +148,7 @@ public final class ApiServicesMigration {
         }
         ObjectNode configNode = jsonMapper.createObjectNode();
         MigrationResult<Service> migrationResult = MigrationResult.value(
-            Service
-                .builder()
+            Service.builder()
                 .overrideConfiguration(false)
                 .type("http-dynamic-properties")
                 .enabled(v2dynamicPropertyService.isEnabled())
@@ -215,8 +206,7 @@ public final class ApiServicesMigration {
             );
         }
 
-        var service = Service
-            .builder()
+        var service = Service.builder()
             .configuration(discoveryService.getConfiguration())
             .type(discoveryService.getProvider())
             .enabled(discoveryService.isEnabled())

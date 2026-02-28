@@ -46,13 +46,13 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.ResourceContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author Kamiel Ahmadpour (kamiel.ahmadpour at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class ApiResource extends AbstractResource {
 
     @Context
@@ -87,17 +87,15 @@ public class ApiResource extends AbstractResource {
             ApiCRDSpec apiCRDSpec = exportApiCRDUseCase.execute(input).spec();
             ApiV4Spec apiV4Spec = ApiMapper.INSTANCE.apiCRDSpecToApiV4Spec(ApiCRDMapper.INSTANCE.map(apiCRDSpec));
             SharedPolicyGroupIdHelper.removeSPGID(apiV4Spec);
-            return Response
-                .ok(
-                    ApiMapper.INSTANCE.apiV4SpecToApiV4State(
-                        apiV4Spec,
-                        apiCRDSpec.getId(),
-                        apiCRDSpec.getCrossId(),
-                        executionContext.getOrganizationId(),
-                        executionContext.getEnvironmentId()
-                    )
+            return Response.ok(
+                ApiMapper.INSTANCE.apiV4SpecToApiV4State(
+                    apiV4Spec,
+                    apiCRDSpec.getId(),
+                    apiCRDSpec.getCrossId(),
+                    executionContext.getOrganizationId(),
+                    executionContext.getEnvironmentId()
                 )
-                .build();
+            ).build();
         } catch (ApiNotFoundException e) {
             log.warn("API not found for HRID: {}, operation: getApiByHRID", apiHrid, e);
             throw new HRIDNotFoundException(apiHrid);
@@ -123,13 +121,11 @@ public class ApiResource extends AbstractResource {
     }
 
     private static AuditInfo buildAuditInfo(ExecutionContext executionContext, UserDetails userDetails) {
-        return AuditInfo
-            .builder()
+        return AuditInfo.builder()
             .organizationId(executionContext.getOrganizationId())
             .environmentId(executionContext.getEnvironmentId())
             .actor(
-                AuditActor
-                    .builder()
+                AuditActor.builder()
                     .userId(userDetails.getUsername())
                     .userSource(userDetails.getSource())
                     .userSourceId(userDetails.getSourceId())

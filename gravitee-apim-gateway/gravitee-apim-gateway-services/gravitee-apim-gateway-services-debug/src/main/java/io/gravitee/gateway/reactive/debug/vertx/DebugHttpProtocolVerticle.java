@@ -28,8 +28,7 @@ import io.vertx.rxjava3.core.AbstractVerticle;
 import io.vertx.rxjava3.core.http.HttpServer;
 import io.vertx.rxjava3.core.http.HttpServerRequest;
 import io.vertx.rxjava3.core.http.HttpServerResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Qualifier;
 
 /**
@@ -38,9 +37,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
  * @author Guillaume LAMIRAND (guillaume.lamirand at graviteesource.com)
  * @author GraviteeSource Team
  */
+@CustomLog
 public class DebugHttpProtocolVerticle extends AbstractVerticle {
-
-    private final Logger log = LoggerFactory.getLogger(DebugHttpProtocolVerticle.class);
 
     private final HttpRequestDispatcher requestDispatcher;
     private final VertxHttpServer debugServer;
@@ -59,16 +57,15 @@ public class DebugHttpProtocolVerticle extends AbstractVerticle {
         final HttpServer rxHttpServer = debugServer.newInstance();
 
         // Listen and dispatch http requests.
-        requestDisposable =
-            rxHttpServer
-                .connectionHandler(connection -> {
-                    HttpServerConnection delegate = (HttpServerConnection) connection.getDelegate();
-                    delegate.channel().attr(AttributeKey.valueOf(NETTY_ATTR_CONNECTION_TIME)).set(System.currentTimeMillis());
-                })
-                .requestStream()
-                .toFlowable()
-                .flatMapCompletable(this::dispatchRequest)
-                .subscribe();
+        requestDisposable = rxHttpServer
+            .connectionHandler(connection -> {
+                HttpServerConnection delegate = (HttpServerConnection) connection.getDelegate();
+                delegate.channel().attr(AttributeKey.valueOf(NETTY_ATTR_CONNECTION_TIME)).set(System.currentTimeMillis());
+            })
+            .requestStream()
+            .toFlowable()
+            .flatMapCompletable(this::dispatchRequest)
+            .subscribe();
 
         return rxHttpServer
             .rxListen()
@@ -147,8 +144,7 @@ public class DebugHttpProtocolVerticle extends AbstractVerticle {
 
     @Override
     public Completable rxStop() {
-        return Completable
-            .fromRunnable(requestDisposable::dispose)
+        return Completable.fromRunnable(requestDisposable::dispose)
             .andThen(
                 debugServer
                     .instances()

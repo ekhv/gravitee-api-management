@@ -18,14 +18,14 @@ package io.gravitee.rest.api.service.impl.swagger.policy;
 import io.gravitee.plugin.policy.PolicyPlugin;
 import io.gravitee.policy.api.swagger.v2.SwaggerOperationVisitor;
 import io.gravitee.policy.api.swagger.v3.OAIOperationVisitor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class PolicyPluginHandler extends io.gravitee.plugin.policy.internal.PolicyPluginHandler {
 
     @Autowired
@@ -34,8 +34,9 @@ public class PolicyPluginHandler extends io.gravitee.plugin.policy.internal.Poli
     @Override
     protected void register(PolicyPlugin policyPlugin) {
         Class<? extends OAIOperationVisitor> oaiVisitor = new OAIOperationVisitorClassFinder().lookupFirst(policyPlugin.policy());
-        Class<? extends SwaggerOperationVisitor> swaggerVisitor = new SwaggerOperationVisitorClassFinder()
-            .lookupFirst(policyPlugin.policy());
+        Class<? extends SwaggerOperationVisitor> swaggerVisitor = new SwaggerOperationVisitorClassFinder().lookupFirst(
+            policyPlugin.policy()
+        );
 
         try {
             addVisitor(policyPlugin, createInstance(swaggerVisitor), createInstance(oaiVisitor));

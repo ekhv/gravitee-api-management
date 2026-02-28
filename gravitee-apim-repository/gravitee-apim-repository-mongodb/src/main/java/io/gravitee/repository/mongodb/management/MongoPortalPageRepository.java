@@ -17,6 +17,7 @@ package io.gravitee.repository.mongodb.management;
 
 import io.gravitee.repository.exceptions.TechnicalException;
 import io.gravitee.repository.management.api.PortalPageRepository;
+import io.gravitee.repository.management.model.ExpandsViewContext;
 import io.gravitee.repository.management.model.PortalPage;
 import io.gravitee.repository.mongodb.management.internal.model.PortalPageMongo;
 import io.gravitee.repository.mongodb.management.internal.portalpage.PortalPageMongoRepository;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -32,7 +33,7 @@ import org.springframework.stereotype.Component;
  * @author GraviteeSource Team
  */
 @Component
-@Slf4j
+@CustomLog
 public class MongoPortalPageRepository implements PortalPageRepository {
 
     @Autowired
@@ -100,8 +101,7 @@ public class MongoPortalPageRepository implements PortalPageRepository {
     }
 
     private PortalPage map(PortalPageMongo portalPageMongo) {
-        return PortalPage
-            .builder()
+        return PortalPage.builder()
             .id(portalPageMongo.getId())
             .environmentId(portalPageMongo.getEnvironmentId())
             .name(portalPageMongo.getName())
@@ -118,5 +118,38 @@ public class MongoPortalPageRepository implements PortalPageRepository {
         }
         List<PortalPageMongo> portalPages = internalRepo.findAllById(ids);
         return portalPages.stream().map(this::map).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PortalPage> findByIdsWithExpand(List<String> ids, List<ExpandsViewContext> expands) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        var projections = internalRepo.findPortalPagesByIdWithExpand(ids, expands);
+        return projections
+            .stream()
+            .map(p -> {
+                var builder = PortalPage.builder()
+                    .id(p.getId())
+                    .environmentId(p.getEnvironmentId())
+                    .name(p.getName())
+                    .createdAt(p.getCreatedAt())
+                    .updatedAt(p.getUpdatedAt())
+                    .content(p.getContent());
+                return builder.build();
+            })
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public void deleteByEnvironmentId(String environmentId) throws TechnicalException {
+        log.debug("Delete portal pages by environment id [{}]", environmentId);
+        try {
+            internalRepo.deleteByEnvironmentId(environmentId);
+        } catch (Exception ex) {
+            final String error = "An error occurred when deleting portal pages by environment id: " + environmentId;
+            log.error(error, ex);
+            throw new TechnicalException(error, ex);
+        }
     }
 }

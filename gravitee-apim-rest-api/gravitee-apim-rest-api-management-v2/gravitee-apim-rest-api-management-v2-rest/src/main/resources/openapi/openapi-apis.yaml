@@ -4,6 +4,8 @@ info:
     description: |-
         This is the OpenAPI specification for our new version of APIM Management API.
     contact:
+        name: GraviteeSource Team
+        url: https://gravitee.io
         email: team-apim@graviteesource.com
     license:
         name: Apache 2.0
@@ -614,6 +616,35 @@ paths:
             $ref: "#/components/responses/MigrationReportResponses"
           default:
             $ref: "#/components/responses/Error"
+
+    /environments/{envId}/apis/{apiId}/_promote:
+      parameters:
+        - $ref: "#/components/parameters/envIdParam"
+        - $ref: "#/components/parameters/apiIdParam"
+      post:
+        tags:
+          - APIs
+        summary: Promote an API
+        description: |-
+          Promote the API to another environment.
+          User must have the API_DEFINITION[UPDATE] permission.
+        operationId: promoteApi
+        requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromotionRequest"
+          required: true
+        responses:
+          "200":
+            description: Promotion successfully created
+            content:
+              application/json:
+                schema:
+                  $ref: "#/components/schemas/Promotion"
+          default:
+            $ref: "#/components/responses/Error"
+
     /environments/{envId}/apis/{apiId}/_stop:
         parameters:
             - $ref: "#/components/parameters/envIdParam"
@@ -988,6 +1019,19 @@ paths:
                   description: Application's identifier. Allow user to get API's plans subscribable by an application.
                   schema:
                       type: string
+                - name: fields
+                  in: query
+                  description: Nested fields of data to return in plans.
+                  schema:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        - flow
+                        - -flow
+                    default: ['flow']
+                  explode: false
+                  style: form
                 - $ref: "#/components/parameters/pageParam"
                 - $ref: "#/components/parameters/perPageParam"
             tags:
@@ -2200,7 +2244,6 @@ paths:
         get:
             tags:
                 - API Analytics
-            deprecated: true
             summary: Get API Analytics average messages per request
             description: |-
                 Get API analytics average messages per request.
@@ -2374,9 +2417,36 @@ paths:
                 - $ref: "#/components/parameters/perPageParam"
             tags:
                 - API Analytics
+            summary: Get API Aggregated Messages logs (with endpoint and entrypoint messages)
+            description: |-
+                Get API Aggregated Messages logs (with endpoint and entrypoint messages).
+
+                User must have the API_LOG[READ] permission.
+            operationId: getApiAggregatedMessageLogs
+            responses:
+                "200":
+                    $ref: "#/components/responses/ApiAggregatedMessageLogsResponse"
+                default:
+                    $ref: "#/components/responses/Error"
+    /environments/{envId}/apis/{apiId}/logs/messages:
+        parameters:
+            - $ref: "#/components/parameters/envIdParam"
+            - $ref: "#/components/parameters/apiIdParam"
+        get:
+            parameters:
+                - $ref: "#/components/parameters/pageParam"
+                - $ref: "#/components/parameters/perPageParam"
+                - $ref: "#/components/parameters/messageLogsConnectorType"
+                - $ref: "#/components/parameters/messageLogsConnectorId"
+                - $ref: "#/components/parameters/messageLogsOperation"
+                - $ref: "#/components/parameters/requestIdParam"
+                - $ref: "#/components/parameters/from"
+                - $ref: "#/components/parameters/to"
+            tags:
+                - API Analytics
             summary: Get API Messages logs
             description: |-
-                Get API Messages logs.
+                Get API Messages logs. Allow filtering. 
 
                 User must have the API_LOG[READ] permission.
             operationId: getApiMessageLogs
@@ -2934,6 +3004,28 @@ paths:
             $ref: "#/components/responses/GenerateExpressionLanguageResponse"
           default:
             $ref: "#/components/responses/Error"
+    /environments/{envId}/apis/{apiId}/el/feedback:
+      parameters:
+        - $ref: "#/components/parameters/envIdParam"
+        - $ref: "#/components/parameters/apiIdParam"
+      post:
+        tags:
+          - newtai
+        summary: Submit Newt AI generated Expression Language feedback
+        description: |-
+          Submit feedback for the Newt AI generated Expression Language.
+        operationId: feedbackEl
+        requestBody:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpressionLanguageFeedback"
+          required: true
+        responses:
+          "204":
+            description: Feedback successfully submitted
+          default:
+            $ref: "#/components/responses/Error"
 
     # DebugMode
     /environments/{envId}/apis/{apiId}/debug:
@@ -2962,6 +3054,31 @@ paths:
                                 $ref: "#/components/schemas/DebugEvent"
                 default:
                     $ref: "#/components/responses/Error"
+
+    /environments/{envId}/apis/{apiId}/api-products:
+      get:
+        tags:
+          - API Product
+        summary: Get API Products for an API
+        description: Returns the list of API Products that include the specified API.
+        operationId: getApiProductsForApi
+        parameters:
+          - $ref: "#/components/parameters/envIdParam"
+          - $ref: "#/components/parameters/apiIdParam"
+        responses:
+          '200':
+            description: List of API Products for the API
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ApiProduct'
+          default:
+            $ref: "#/components/responses/Error"
 
 components:
     schemas:
@@ -3009,6 +3126,21 @@ components:
                     type: string
                     description: API's description. A short description of your API.
                     example: I can use many characters to describe this API.
+        BaseApiProduct:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: API Product's uuid.
+                    example: 00f8c9e7-78fc-4907-b8c9-e778fc790750
+                name:
+                    type: string
+                    description: API Product's name.
+                    example: My API Product
+                description:
+                    type: string
+                    description: API Product's description.
+                    example: A bundle of public APIs.
         GenericApi:
             type: object
             allOf:
@@ -3237,6 +3369,11 @@ components:
                               $ref: "#/components/schemas/FlowV4"
                       services:
                           $ref: "#/components/schemas/ApiServices"
+                      allowedInApiProducts:
+                          type: boolean
+                          description: Indicates whether this API is allowed to be used in API Products. Only applicable for V4 HTTP Proxy APIs.
+                          default: false
+                          example: false
 
         ApiFederated:
             type: object
@@ -3417,6 +3554,8 @@ components:
                     type: string
                     description: API's description. A short description of your API.
                     example: I can use many characters to describe this API.
+                visibility:
+                    $ref: "#/components/schemas/Visibility"
                 definitionVersion:
                     $ref: "#/components/schemas/DefinitionVersion"
                 groups:
@@ -3494,6 +3633,11 @@ components:
                           type: array
                           items:
                               $ref: "#/components/schemas/FlowV4"
+                      allowedInApiProducts:
+                          type: boolean
+                          description: Indicates whether this API is allowed to be used in API Products. Only applicable for V4 HTTP Proxy APIs.
+                          default: true
+                          example: true
                   required: [listeners, endpointGroups, type]
 
         DuplicateApiOptions:
@@ -3740,6 +3884,11 @@ components:
                               $ref: "#/components/schemas/FlowV4"
                       services:
                           $ref: "#/components/schemas/ApiServices"
+                      allowedInApiProducts:
+                          type: boolean
+                          description: Indicates whether this API is allowed to be used in API Products. Only applicable for V4 HTTP Proxy APIs.
+                          default: false
+                          example: false
                   required: [listeners, endpointGroups, type]
 
         UpdateApiFederated:
@@ -3796,6 +3945,19 @@ components:
             message:
               description: Prompt of generation.
               type: string
+
+        ExpressionLanguageFeedback:
+          type: object
+          description: Feedback of expression language generation
+          required:
+            - answerHelpful
+            - feedbackRequestId
+          properties:
+            feedbackRequestId:
+              $ref: "#/components/schemas/FeedbackRequestId"
+            answerHelpful:
+              description: Indicates if the answer was helpful.
+              type: boolean
 
         ApiDeployment:
             type: object
@@ -3881,13 +4043,17 @@ components:
             description: API's type.
             example: MESSAGE
             enum:
+                - A2A_PROXY
+                - LLM_PROXY
+                - MCP_PROXY
                 - MESSAGE
-                - PROXY
                 - NATIVE
+                - PROXY
         Visibility:
             type: string
             description: The visibility of the resource regarding the portal.
             example: PUBLIC
+            default: PRIVATE
             enum:
                 - PUBLIC
                 - PRIVATE
@@ -4300,9 +4466,9 @@ components:
                     description: Flow step used for MESSAGE and NATIVE APIs
                     items:
                         $ref: "#/components/schemas/StepV4"
-                connect:
+                entrypointConnect:
                     type: array
-                    description: Flow step used for NATIVE APIs
+                    description: Flow step used for NATIVE APIs entrypoint connect phase
                     items:
                         $ref: "#/components/schemas/StepV4"
                 interact:
@@ -4721,6 +4887,10 @@ components:
                     type: string
                     description: Id of the API owning the plan.
                     example: 6c530064-0b2c-4004-9300-640b2ce0047b
+                apiProductId:
+                    type: string
+                    description: Id of the API Product owning the plan. Present only when the plan belongs to an API Product (omitted for API plans).
+                    example: 6c530064-0b2c-4004-9300-640b2ce0047b
                 security:
                     $ref: "#/components/schemas/PlanSecurity"
                 mode:
@@ -4875,6 +5045,98 @@ components:
             enum:
                 - AUTO
                 - MANUAL
+
+        PromotionRequest:
+          type: object
+          properties:
+            targetEnvCockpitId:
+              type: string
+              description: The target environment id where the promotion should be done.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+            targetEnvName:
+              type: string
+              description: The target environment name where the promotion should be done.
+              example: prod
+
+        Promotion:
+          type: object
+          properties:
+            id:
+              type: string
+              description: The promotion id.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+            apiDefinition:
+              type: string
+              description: The api definition.
+            apiId:
+              type: string
+              description: The api id.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+            status:
+              type: string
+              description: The status of the promotion.
+              enum:
+                - CREATED
+                - TO_BE_VALIDATED
+                - ACCEPTED
+                - REJECTED
+                - ERROR
+            targetEnvCockpitId:
+              type: string
+              description: The target environment id where the promotion should be done.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+            targetEnvName:
+              type: string
+              description: The target environment name where the promotion should be done.
+              example: prod
+            sourceEnvCockpitId:
+              type: string
+              description: The source environment id where the promotion should come from.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+            sourceEnvName:
+              type: string
+              description: The source environment name where the promotion should come from.
+              example: dev
+            createdAt:
+              type: string
+              format: date-time
+              description: The datetime when the promotion was created.
+              example: 2023-05-25T12:40:46.184Z
+            updatedAt:
+              type: string
+              format: date-time
+              description: The datetime when the promotion was updated.
+              example: 2023-05-25T12:40:46.184Z
+            author:
+              $ref: "#/components/schemas/PromotionAuthor"
+            targetApiId:
+              type: string
+              description: The target api id.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+
+        PromotionAuthor:
+          type: object
+          properties:
+            userId:
+              type: string
+              description: The user id.
+              example: df83b2a4-cc3e-3f80-9f0d-c138c106c076
+            displayName:
+              type: string
+              description: The display name of the user who created the promotion.
+              example: John Doe
+            email:
+              type: string
+              description: The email of the user who created the promotion.
+              example: email@example.com
+            source:
+              type: string
+              description: The source of the use who created the promotion.
+              example: cockpit
+            sourceId:
+              type: string
+              description: The id of the user who created the promotion source.
+              example: 89eb0e39-1706-49c1-ab0e-391706d9c10a
 
         CreatePlan:
             oneOf:
@@ -5122,6 +5384,8 @@ components:
                 - properties:
                       api:
                           $ref: "#/components/schemas/BaseApi"
+                      apiProduct:
+                          $ref: "#/components/schemas/BaseApiProduct"
                       plan:
                           $ref: "#/components/schemas/BasePlan"
                       application:
@@ -5637,18 +5901,33 @@ components:
                 propagateErrorKeyToLogs:
                     type: boolean
         Sampling:
+            description: API analytics sampling (message API only). This is meant to log only a portion to avoid overflowing the log sink.
             type: object
             properties:
                 type:
                     type: string
-                    description: The type of the sampling
+                    description: |
+                        The type of the sampling:
+
+                        `PROBABILITY`: based on a specified probability,
+                        `TEMPORAL`: report one message at least every duration,
+                        `COUNT`: for every number of specified messages,
+                        `WINDOWED_COUNT`: x number of messages on a time window,
+                        
                     enum:
                         - PROBABILITY
                         - TEMPORAL
                         - COUNT
+                        - WINDOWED_COUNT
                 value:
                     type: string
-                    description: The value of the sampling
+                    description: |
+                        The value of the sampling:
+
+                        `PROBABILITY`: between `0.01` and `0.5`,
+                        `TEMPORAL`: ISO-8601 duration format, 1 second minimum (PT1S)
+                        `COUNT`: greater than `1`,
+                        `WINDOWED_COUNT`: x/<ISO-8601 duration> cannot exceed 1 message per second
             required:
                 - type
         MembershipMemberType:
@@ -5662,12 +5941,14 @@ components:
                 - $ref: "#/components/schemas/HttpSelector"
                 - $ref: "#/components/schemas/ChannelSelector"
                 - $ref: "#/components/schemas/ConditionSelector"
+                - $ref: "#/components/schemas/McpSelector"
             discriminator:
                 propertyName: type
                 mapping:
                     HTTP: "#/components/schemas/HttpSelector"
                     CHANNEL: "#/components/schemas/ChannelSelector"
                     CONDITION: ConditionSelector
+                    MCP: McpSelector
         BaseSelector:
             properties:
                 type:
@@ -5678,12 +5959,14 @@ components:
                         - HTTP
                         - CHANNEL
                         - CONDITION
+                        - MCP
             discriminator:
                 propertyName: type
                 mapping:
                     HTTP: "#/components/schemas/HttpSelector"
                     CHANNEL: "#/components/schemas/ChannelSelector"
                     CONDITION: "#/components/schemas/ConditionSelector"
+                    MCP: "#/components/schemas/McpSelector"
             required:
                 - type
         ServiceV4:
@@ -5784,7 +6067,6 @@ components:
                     items:
                         $ref: "#/components/schemas/Path"
             required: [paths]
-
         VerifyApiHosts:
             title: "VerifyApiHosts"
             properties:
@@ -5799,6 +6081,23 @@ components:
                     items:
                         type: string
             required: [hosts]
+
+        McpSelector:
+          type: object
+          title: "McpSelector"
+          required:
+            - methods
+          allOf:
+            - $ref: "#/components/schemas/BaseSelector"
+            - type: object
+              properties:
+                methods:
+                  type: array
+                  description: MCP Methods to select on
+                  items:
+                    type: string
+                  uniqueItems: true
+
 
         ## API V2 specific schemas
         ApiEntrypoint:
@@ -6180,6 +6479,16 @@ components:
                     default: true
                 version:
                     $ref: "#/components/schemas/ProtocolVersion"
+                maxHeaderSize:
+                    type: integer
+                    format: int32
+                    description: Maximum header size value
+                    default: 8192
+                maxChunkSize:
+                    type: integer
+                    format: int32
+                    description: Maximum chunk size value
+                    default: 8192
         HttpClientSslOptions:
             type: object
             properties:
@@ -6654,6 +6963,10 @@ components:
                   description: The warning diagnotics
                   items:
                     $ref: "#/components/schemas/ApiLogDiagnostic"
+                additionalMetrics:
+                  type: object
+                  additionalProperties: true
+                  description: A map of string keys to values
 
         ApiLogDiagnostic:
           type: object
@@ -6673,7 +6986,7 @@ components:
             message:
               type: string
               description: The diagnostic message.
-        ApiMessageLog:
+        ApiAggregatedMessageLog:
             type: object
             properties:
                 requestId:
@@ -6725,7 +7038,88 @@ components:
                     type: string
                     description: The request's body.
                     example: my body
-
+        ApiMessageLog:
+            type: object
+            description: Metrics data for a sampled message.
+            properties:
+                gateway:
+                    description: Gateway ID emitting this metrics
+                    type: string
+                timestamp:
+                    type: string
+                    format: date-time
+                requestId:
+                    description: Request ID after which message were emitted
+                    type: string
+                apiId:
+                    description: API UUID
+                    type: string
+                apiName:
+                    description: API Name (may change between metrics if API was redeployed with another name)
+                    type: string
+                clientIdentifier:
+                    description: identified client if any
+                    type: string
+                correlationId:
+                    description: ID to identify that message traserving the Gateway
+                    type: string
+                operation:
+                    $ref: "#/components/schemas/MessageOperation"
+                connectorType:
+                    $ref: "#/components/schemas/ConnectorType"
+                connectorId:
+                    description: Plugin ID of the connector that emitted the metric
+                    type: string
+                    example: webhook
+                contentLength:
+                    description: Message content length
+                    type: integer
+                    format: int64
+                    minimum: 0
+                count:
+                    description: Total successful messages count over the span of the subscription
+                    type: integer
+                    format: int64
+                    minimum: 0
+                errorCount:
+                    description: Total failure message count in error count
+                    type: integer
+                    format: int64
+                    minimum: 0
+                countIncrement:
+                    description: Rate in which message are counted
+                    type: integer
+                    format: int64
+                    minimum: 0
+                error:
+                    description: If the message is in error
+                    type: boolean
+                gatewayLatencyMs:
+                    description: Gateway latency to deliver this message
+                    type: integer
+                    format: int64
+                    minimum: 0
+                custom:
+                    description: User defined custom metrics data
+                    type: object
+                    additionalProperties:
+                        type: string
+                additionalMetrics:
+                    description: Plugin specific metrics (e.g. webhook entrypoint add several to monitor callback information such status, errors, latency, time)
+                    type: object
+                    additionalProperties: true
+        MessageOperation:
+            description: The operation that emitted the message
+            type: string
+            enum:
+                - publish
+                - subscribe
+        ConnectorType:
+            description: Type of connector that emitted the metric
+            type: string
+            enum:
+                - entrypoint
+                - endpoint
         ApiLogResponseContent:
             type: object
             description: The log response content.
@@ -6923,6 +7317,8 @@ components:
             enum:
                 - ALERT_NOTIFICATION
                 - DEBUG_API
+                - DEPLOY_API_PRODUCT
+                - DEPLOY_SHARED_POLICY_GROUP
                 - GATEWAY_STARTED
                 - GATEWAY_STOPPED
                 - PUBLISH_API
@@ -6934,11 +7330,11 @@ components:
                 - START_DICTIONARY
                 - STOP_API
                 - STOP_DICTIONARY
+                - UNDEPLOY_API_PRODUCT
+                - UNDEPLOY_SHARED_POLICY_GROUP
                 - UNPUBLISH_API
                 - UNPUBLISH_API_RESULT
                 - UNPUBLISH_DICTIONARY
-                - DEPLOY_SHARED_POLICY_GROUP
-                - UNDEPLOY_SHARED_POLICY_GROUP
 
         # Documentation pages
         AccessControl:
@@ -7838,36 +8234,36 @@ components:
                     - type: object
                       properties:
                         avg:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Average value of the metric.
                         min:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Minimum value of the metric.
                         max:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Maximum value of the metric.
                         sum:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Sum of all metric values.
                         count:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Total number of data points.
                         rps:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Requests per second.
                         rpm:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Requests per minute.
                         rph:
-                          type: integer
-                          format: int64
+                          type: number
+                          format: float
                           description: Requests per hour.
         CountAnalytics:
           allOf:
@@ -7910,8 +8306,8 @@ components:
                             data:
                               type: array
                               items:
-                                type: integer
-                                format: int64
+                                type: number
+                                format: double
                       field:
                         type: string
                       name:
@@ -8051,7 +8447,7 @@ components:
             - MIGRATABLE
             - CAN_BE_FORCED
             - IMPOSSIBLE
-        
+
         FeedbackRequestId:
           description: newt AI feedback request id.
           type: object
@@ -8062,6 +8458,42 @@ components:
               type: string
             agentMessageId:
               type: string
+
+        ApiProduct:
+          type: object
+          title: "ApiProduct"
+          description: API Product representation
+          properties:
+            id:
+              type: string
+              description: The API Product ID
+              example: "api-product-123"
+            environmentId:
+              type: string
+              description: The environment ID
+              example: "DEFAULT"
+            name:
+              type: string
+              description: The API Product name
+              example: "My API Product"
+            description:
+              type: string
+              description: The API Product description
+              example: "A bundle of public APIs"
+            version:
+              type: string
+              description: The API Product version
+              example: "1.0.0"
+            createdAt:
+              type: string
+              format: date-time
+              description: API Product creation date
+              example: "2025-01-01T10:15:30Z"
+            updatedAt:
+              type: string
+              format: date-time
+              description: API Product last update date
+              example: "2025-01-01T10:15:30Z"
 
     parameters:
         #############
@@ -8238,6 +8670,25 @@ components:
         ###############################
         # Other Query Parameters      #
         ###############################
+        messageLogsConnectorType:
+            name: connectorType
+            in: query
+            description: Connector type to filter on. If unset, no filtering is applied.
+            schema:
+                $ref: "#/components/schemas/ConnectorType"
+        messageLogsConnectorId:
+            name: connectorId
+            in: query
+            description: Connector ID (plugin ID) to filter on. If unset, no filtering is applied.
+            schema:
+                type: string
+                example: webhook
+        messageLogsOperation:
+            name: operation
+            in: query
+            description: Operation to filter on. If unset, no filtering is applied.
+            schema:
+                $ref: "#/components/schemas/MessageOperation"
         apisSearchExpandsParam:
             name: expands
             in: query
@@ -8808,6 +9259,14 @@ components:
                     type: string
                     description: The id of the gateway.
                     example: 00f8c9e7-78fc-4907-b8c9-e778fc790750
+                  gatewayHostname:
+                    type: string
+                    description: The hostname of the gateway instance.
+                    example: gateway-1.example.com
+                  gatewayIp:
+                    type: string
+                    description: The IP address of the gateway instance.
+                    example: 192.168.1.100
                   uri:
                     type: string
                     description: URI of the request.
@@ -8867,6 +9326,10 @@ components:
                     description: The warning diagnotics
                     items:
                       $ref: "#/components/schemas/ApiLogDiagnostic"
+                  additionalMetrics:
+                    type: object
+                    additionalProperties: true
+                    description: A map of string keys to values
 
         # Analytics - Logs
         ApiLogsResponse:
@@ -8881,6 +9344,22 @@ components:
                                 type: array
                                 items:
                                     $ref: "#/components/schemas/ApiLog"
+                            pagination:
+                                $ref: "#/components/schemas/Pagination"
+                            links:
+                                $ref: "#/components/schemas/Links"
+        ApiMessageLogsResponse:
+            description: Page of Message metrics
+            content:
+                application/json:
+                    schema:
+                        title: "ApiMessageLogsResponse"
+                        properties:
+                            data:
+                                description: List of Message metrics.
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/ApiMessageLog"
                             pagination:
                                 $ref: "#/components/schemas/Pagination"
                             links:
@@ -8926,18 +9405,18 @@ components:
                                 $ref: "#/components/schemas/ApiLogRequestContent"
                             endpointResponse:
                                 $ref: "#/components/schemas/ApiLogResponseContent"
-        ApiMessageLogsResponse:
+        ApiAggregatedMessageLogsResponse:
             description: Page of API Messages Logs
             content:
                 application/json:
                     schema:
-                        title: "ApiMessageLogsResponse"
+                        title: "ApiAggregatedMessageLogsResponse"
                         properties:
                             data:
                                 description: List of API Messages logs.
                                 type: array
                                 items:
-                                    $ref: "#/components/schemas/ApiMessageLog"
+                                    $ref: "#/components/schemas/ApiAggregatedMessageLog"
                             pagination:
                                 $ref: "#/components/schemas/Pagination"
                             links:

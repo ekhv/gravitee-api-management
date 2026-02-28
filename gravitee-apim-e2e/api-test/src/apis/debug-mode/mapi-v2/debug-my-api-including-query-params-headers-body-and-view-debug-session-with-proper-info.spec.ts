@@ -23,7 +23,7 @@ import {
   PathOperatorOperatorEnum,
   PlanStatus,
 } from '../../../../../lib/management-webclient-sdk/src/lib/models';
-import { created, describeIfV3, describeIfV4EmulationEngine, succeed } from '@lib/jest-utils';
+import { created, describeIfV3, describeIfV4EmulationEngine, describeIfClientGatewayCompatible, succeed } from '@lib/jest-utils';
 import { MAPIV2ApisFaker } from '@gravitee/fixtures/management/MAPIV2ApisFaker';
 import { MAPIV2PlansFaker } from '@gravitee/fixtures/management/MAPIV2PlansFaker';
 import {
@@ -37,6 +37,7 @@ import { teardownApisAndApplications, teardownV4ApisAndApplications } from '@gra
 import { from, map, retry, Subscription, switchMap } from 'rxjs';
 import { ApisFaker } from '@gravitee/fixtures/management/ApisFaker';
 import { PlansFaker } from '@gravitee/fixtures/management/PlansFaker';
+import { faker } from '@faker-js/faker';
 
 const orgId = 'DEFAULT';
 const envId = 'DEFAULT';
@@ -47,7 +48,7 @@ const apisResource = new APIsApiV1(forManagementAsApiUser());
 const v2ApisResourceAsApiPublisher = new APIsApi(forManagementV2AsApiUser());
 const v2ApiEventsResourceAsApiPublisher = new APIEventsApi(forManagementV2AsApiUser());
 
-describe('Debug my API (incl. query params, Headers and body) and view debug session with proper info', () => {
+describeIfClientGatewayCompatible('Debug my API (incl. query params, Headers and body) and view debug session with proper info', () => {
   beforeAll(async () => {
     // Create Global Flow
     const organization = await organizationApi.get({ orgId });
@@ -67,6 +68,7 @@ describe('Debug my API (incl. query params, Headers and body) and view debug ses
         exportApiV4: MAPIV2ApisFaker.apiImportV4({
           plans: [MAPIV2PlansFaker.planV4({ security: { type: PlanSecurityType.KEY_LESS }, validation: 'AUTO' })],
           api: MAPIV2ApisFaker.apiV4Proxy({
+            name: `debug-v4-${faker.lorem.words(10)}`,
             endpointGroups: [
               {
                 name: 'Default HTTP proxy group',
@@ -327,6 +329,7 @@ describe('Debug my API (incl. query params, Headers and body) and view debug ses
         envId,
         orgId,
         body: ApisFaker.apiImport({
+          name: `debug-v2-${faker.lorem.words(10)}`,
           execution_mode: 'v3',
           plans: [
             PlansFaker.plan({

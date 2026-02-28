@@ -22,9 +22,11 @@ import io.gravitee.definition.model.v4.flow.AbstractFlow;
 import io.gravitee.definition.model.v4.flow.Flow;
 import io.gravitee.definition.model.v4.nativeapi.NativeFlow;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class FlowCrudServiceInMemory implements FlowCrudService, InMemoryAlternative<AbstractFlow> {
@@ -93,6 +95,24 @@ public class FlowCrudServiceInMemory implements FlowCrudService, InMemoryAlterna
     }
 
     @Override
+    public Map<String, List<NativeFlow>> getNativePlanFlows(Set<String> planIds) {
+        Map<String, List<NativeFlow>> result = new HashMap<>();
+        for (String planId : planIds) {
+            result.put(planId, planFlowsNativeV4.getOrDefault(planId, new ArrayList<>()));
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, List<io.gravitee.definition.model.flow.Flow>> getPlanV2Flows(Set<String> planIds) {
+        Map<String, List<io.gravitee.definition.model.flow.Flow>> result = new HashMap<>();
+        for (String planId : planIds) {
+            result.put(planId, planFlowsV2.getOrDefault(planId, new ArrayList<>()));
+        }
+        return result;
+    }
+
+    @Override
     public void initWith(List<AbstractFlow> items) {
         throw new UnsupportedOperationException();
     }
@@ -104,24 +124,20 @@ public class FlowCrudServiceInMemory implements FlowCrudService, InMemoryAlterna
 
     @Override
     public List<AbstractFlow> storage() {
-        var v4Flows = Stream
-            .concat(planFlowsHttpV4.values().stream(), apiFlowsHttpV4.values().stream())
-            .reduce(
-                new ArrayList<>(),
-                (acc, flow) -> {
-                    acc.addAll(flow);
-                    return acc;
-                }
-            );
-        var nativeFlows = Stream
-            .concat(planFlowsNativeV4.values().stream(), apiFlowsNativeV4.values().stream())
-            .reduce(
-                new ArrayList<>(),
-                (acc, flow) -> {
-                    acc.addAll(flow);
-                    return acc;
-                }
-            );
+        var v4Flows = Stream.concat(planFlowsHttpV4.values().stream(), apiFlowsHttpV4.values().stream()).reduce(
+            new ArrayList<>(),
+            (acc, flow) -> {
+                acc.addAll(flow);
+                return acc;
+            }
+        );
+        var nativeFlows = Stream.concat(planFlowsNativeV4.values().stream(), apiFlowsNativeV4.values().stream()).reduce(
+            new ArrayList<>(),
+            (acc, flow) -> {
+                acc.addAll(flow);
+                return acc;
+            }
+        );
 
         var flows = new ArrayList<AbstractFlow>();
         flows.addAll(v4Flows);

@@ -15,10 +15,13 @@
  */
 package io.gravitee.apim.core.newtai.service_provider;
 
+import io.gravitee.apim.core.newtai.model.ELGenFeedback;
 import io.gravitee.apim.core.newtai.model.ELGenQuery;
 import io.gravitee.apim.core.newtai.model.ELGenReply;
+import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Single;
 
 public interface NewtAIProvider {
     Single<ELGenReply> generateEL(ELGenQuery query);
+    Completable submitFeedback(ELGenFeedback feedback);
 }

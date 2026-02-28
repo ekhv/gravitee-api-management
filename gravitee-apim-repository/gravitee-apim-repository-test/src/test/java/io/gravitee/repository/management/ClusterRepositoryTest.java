@@ -58,8 +58,7 @@ public class ClusterRepositoryTest extends AbstractManagementRepositoryTest {
 
     @Test
     public void should_create() throws Exception {
-        final Cluster cluster = Cluster
-            .builder()
+        final Cluster cluster = Cluster.builder()
             .id("cluster-id")
             // Because by default, PostgreSQL's timestamp type (without with time zone) supports up to 6 digits of fractional seconds (microsecond precision),
             // while Java's Instant supports up to nanoseconds (9 digits).
@@ -89,8 +88,7 @@ public class ClusterRepositoryTest extends AbstractManagementRepositoryTest {
 
     @Test
     public void should_update() throws Exception {
-        Cluster toUpdate = Cluster
-            .builder()
+        Cluster toUpdate = Cluster.builder()
             .id("cluster-id-1")
             // Because by default, PostgreSQL's timestamp type (without with time zone) supports up to 6 digits of fractional seconds (microsecond precision),
             // while Java's Instant supports up to nanoseconds (9 digits).
@@ -128,8 +126,7 @@ public class ClusterRepositoryTest extends AbstractManagementRepositoryTest {
     @Test
     public void search_by_env_id_and_ids_no_sortable() {
         Pageable pageable = new PageableBuilder().pageNumber(0).pageSize(10).build();
-        ClusterCriteria criteria = ClusterCriteria
-            .builder()
+        ClusterCriteria criteria = ClusterCriteria.builder()
             .environmentId("env-1")
             .ids(List.of("cluster-id-1", "cluster-id-2", "cluster-id-3", "cluster-id-4"))
             .build();
@@ -154,8 +151,9 @@ public class ClusterRepositoryTest extends AbstractManagementRepositoryTest {
             () -> assertThat(clusters.getPageElements()).isEqualTo(3),
             () -> assertThat(clusters.getTotalElements()).isEqualTo(4),
             () ->
-                assertThat(clusters.getContent().stream().map(Cluster::getName).toList())
-                    .isEqualTo(List.of("8-cluster", "cluster-1", "cluster-10"))
+                assertThat(clusters.getContent().stream().map(Cluster::getName).toList()).isEqualTo(
+                    List.of("8-cluster", "cluster-1", "cluster-10")
+                )
         );
     }
 
@@ -171,8 +169,9 @@ public class ClusterRepositoryTest extends AbstractManagementRepositoryTest {
             () -> assertThat(clusters.getPageElements()).isEqualTo(3),
             () -> assertThat(clusters.getTotalElements()).isEqualTo(4),
             () ->
-                assertThat(clusters.getContent().stream().map(Cluster::getName).toList())
-                    .isEqualTo(List.of("cluster-no-2", "cluster-10", "cluster-1"))
+                assertThat(clusters.getContent().stream().map(Cluster::getName).toList()).isEqualTo(
+                    List.of("cluster-no-2", "cluster-10", "cluster-1")
+                )
         );
     }
 
@@ -215,5 +214,57 @@ public class ClusterRepositoryTest extends AbstractManagementRepositoryTest {
 
         Cluster updatedCluster = clusterRepository.findById(clusterId).orElseThrow();
         assertThat(updatedCluster.getGroups()).isEqualTo(Set.of("group-3", "group-4"));
+    }
+
+    @Test
+    public void should_delete_by_environment_id() throws Exception {
+        String environmentIdToDelete = "env-1";
+        Pageable pageable = new PageableBuilder().pageNumber(0).pageSize(10).build();
+
+        // Given
+        ClusterCriteria criteriaDelete = ClusterCriteria.builder().environmentId("env-1").build();
+        Page<Cluster> toBeDeleted = clusterRepository.search(criteriaDelete, pageable, Optional.empty());
+        assertThat(toBeDeleted.getTotalElements()).isEqualTo(4);
+        assertThat(toBeDeleted.getContent()).allMatch(cluster -> environmentIdToDelete.equals(cluster.getEnvironmentId()));
+
+        ClusterCriteria criteriaNotDelete = ClusterCriteria.builder().environmentId("env-2").build();
+        Page<Cluster> notToBeDeleted = clusterRepository.search(criteriaNotDelete, pageable, Optional.empty());
+        assertThat(notToBeDeleted.getTotalElements()).isEqualTo(4);
+        assertThat(notToBeDeleted.getContent()).noneMatch(cluster -> environmentIdToDelete.equals(cluster.getEnvironmentId()));
+
+        // When
+        clusterRepository.deleteByEnvironmentId(environmentIdToDelete);
+
+        // Then
+        Page<Cluster> afterDeleted = clusterRepository.search(criteriaDelete, pageable, Optional.empty());
+        assertThat(afterDeleted.getTotalElements()).isEqualTo(0);
+        Page<Cluster> afterNotDeleted = clusterRepository.search(criteriaNotDelete, pageable, Optional.empty());
+        assertThat(afterNotDeleted.getTotalElements()).isEqualTo(4);
+    }
+
+    @Test
+    public void should_delete_by_organization_id() throws Exception {
+        String organizationIdToDelete = "org-2";
+        Pageable pageable = new PageableBuilder().pageNumber(0).pageSize(10).build();
+
+        // Given
+        ClusterCriteria criteriaMatchingToDelete = ClusterCriteria.builder().environmentId("env-3").build();
+        Page<Cluster> toBeDeleted = clusterRepository.search(criteriaMatchingToDelete, pageable, Optional.empty());
+        assertThat(toBeDeleted.getTotalElements()).isEqualTo(2);
+        assertThat(toBeDeleted.getContent()).allMatch(cluster -> organizationIdToDelete.equals(cluster.getOrganizationId()));
+
+        ClusterCriteria criteriaMatchingNotDelete = ClusterCriteria.builder().environmentId("env-1").build();
+        Page<Cluster> notToBeDeleted = clusterRepository.search(criteriaMatchingNotDelete, pageable, Optional.empty());
+        assertThat(notToBeDeleted.getTotalElements()).isEqualTo(4);
+        assertThat(notToBeDeleted.getContent()).noneMatch(cluster -> organizationIdToDelete.equals(cluster.getOrganizationId()));
+
+        // When
+        clusterRepository.deleteByOrganizationId(organizationIdToDelete);
+
+        // Then
+        Page<Cluster> afterDeleted = clusterRepository.search(criteriaMatchingToDelete, pageable, Optional.empty());
+        assertThat(afterDeleted.getTotalElements()).isEqualTo(0);
+        Page<Cluster> afterNotDeleted = clusterRepository.search(criteriaMatchingNotDelete, pageable, Optional.empty());
+        assertThat(afterNotDeleted.getTotalElements()).isEqualTo(4);
     }
 }

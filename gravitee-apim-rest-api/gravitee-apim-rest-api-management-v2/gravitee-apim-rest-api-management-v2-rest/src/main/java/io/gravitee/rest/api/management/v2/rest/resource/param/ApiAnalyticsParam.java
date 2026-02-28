@@ -28,11 +28,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import lombok.CustomLog;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
+@CustomLog
 @Setter
 @Getter
 public class ApiAnalyticsParam {
@@ -68,8 +68,7 @@ public class ApiAnalyticsParam {
     private List<String> terms;
 
     public AnalyticsType getType() {
-        return Arrays
-            .stream(AnalyticsType.values())
+        return Arrays.stream(AnalyticsType.values())
             .filter(analyticsType -> analyticsType.name().equalsIgnoreCase(type))
             .findFirst()
             .orElse(null);
@@ -80,8 +79,7 @@ public class ApiAnalyticsParam {
             return List.of();
         }
         // Split by comma, then parse each "from:to"
-        return java.util.Arrays
-            .stream(ranges.split("[;,]"))
+        return java.util.Arrays.stream(ranges.split("[;,]"))
             .map(String::trim)
             .map(param -> {
                 String[] bounds = param.split(":");
@@ -105,8 +103,7 @@ public class ApiAnalyticsParam {
             return List.of();
         }
         // Split by comma, then parse each "type:field"
-        return java.util.Arrays
-            .stream(aggregations.split("[;,]"))
+        return java.util.Arrays.stream(aggregations.split("[;,]"))
             .map(String::trim)
             .map(param -> {
                 String[] parts = param.split(":");

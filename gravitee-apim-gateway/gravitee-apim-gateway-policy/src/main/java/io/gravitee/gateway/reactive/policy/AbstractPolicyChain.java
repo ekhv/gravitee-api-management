@@ -15,18 +15,16 @@
  */
 package io.gravitee.gateway.reactive.policy;
 
-import static io.gravitee.gateway.reactive.api.context.InternalContextAttributes.ATTR_INTERNAL_EXECUTION_COMPONENT_NAME;
-import static io.gravitee.gateway.reactive.api.context.InternalContextAttributes.ATTR_INTERNAL_EXECUTION_COMPONENT_TYPE;
-
 import io.gravitee.gateway.reactive.api.ComponentType;
 import io.gravitee.gateway.reactive.api.ExecutionPhase;
 import io.gravitee.gateway.reactive.api.context.base.BaseExecutionContext;
 import io.gravitee.gateway.reactive.api.policy.base.BasePolicy;
+import io.gravitee.gateway.reactive.core.context.ComponentScope;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import jakarta.annotation.Nonnull;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * AbstractPolicyChain is responsible for executing a given list of policies respecting the original order.
@@ -36,12 +34,15 @@ import lombok.extern.slf4j.Slf4j;
  * @author Jeoffrey HAEYAERT (jeoffrey.haeyaert at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public abstract class AbstractPolicyChain<T extends BasePolicy> implements PolicyChain<BaseExecutionContext> {
 
     protected final String id;
     protected final ExecutionPhase phase;
     protected final Flowable<T> policies;
+
+    private final List<T> originalPolicies;
+    private Flowable<T> reversedPolicies;
 
     /**
      * Creates a policy chain with the given list of policies.
@@ -53,7 +54,16 @@ public abstract class AbstractPolicyChain<T extends BasePolicy> implements Polic
     public AbstractPolicyChain(@Nonnull String id, @Nonnull List<T> policies, @Nonnull ExecutionPhase phase) {
         this.id = id;
         this.phase = phase;
+        this.originalPolicies = policies;
         this.policies = Flowable.fromIterable(policies);
+    }
+
+    protected Flowable<T> reversedPolicies() {
+        if (reversedPolicies == null) {
+            reversedPolicies = Flowable.fromIterable(originalPolicies.reversed());
+        }
+
+        return reversedPolicies;
     }
 
     @Override
@@ -72,13 +82,8 @@ public abstract class AbstractPolicyChain<T extends BasePolicy> implements Polic
     @Override
     public Completable execute(BaseExecutionContext ctx) {
         return policies.concatMapCompletable(policy -> {
-            ctx.setInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_TYPE, ComponentType.POLICY);
-            ctx.setInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_NAME, policy.id());
-            return executePolicy(ctx, policy)
-                .doFinally(() -> {
-                    ctx.removeInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_TYPE);
-                    ctx.removeInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_NAME);
-                });
+            ComponentScope.push(ctx, ComponentType.POLICY, policy.id());
+            return executePolicy(ctx, policy).doFinally(() -> ComponentScope.remove(ctx, ComponentType.POLICY, policy.id()));
         });
     }
 

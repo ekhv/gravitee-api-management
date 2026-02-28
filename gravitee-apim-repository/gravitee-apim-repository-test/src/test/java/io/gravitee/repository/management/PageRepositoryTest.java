@@ -49,7 +49,12 @@ public class PageRepositoryTest extends AbstractManagementRepositoryTest {
         assertEquals(13, pages.getPageElements());
         assertEquals(13, pages.getContent().size());
 
-        Page findApiPage = pages.getContent().stream().filter(p -> p.getId().equals("FindApiPage")).findFirst().get();
+        Page findApiPage = pages
+            .getContent()
+            .stream()
+            .filter(p -> p.getId().equals("FindApiPage"))
+            .findFirst()
+            .get();
         assertFindPage(findApiPage);
     }
 
@@ -319,6 +324,7 @@ public class PageRepositoryTest extends AbstractManagementRepositoryTest {
         assertEquals("Invalid page content.", "Content of the update page", optionalBefore.get().getContent());
         final Page page = optionalBefore.get();
         page.setId("updatePage");
+        page.setHrid("updatePage-hrid");
         page.setName("New name");
         page.setContent("New content");
         page.setReferenceId("my-api-2");
@@ -328,6 +334,7 @@ public class PageRepositoryTest extends AbstractManagementRepositoryTest {
         page.setUpdatedAt(new Date(1486771200000L));
         page.setCreatedAt(new Date(1486772200000L));
         page.setParentId("parent-123");
+        page.setParentHrid("parent-123-hrid");
         page.setHomepage(true);
         page.setExcludedAccessControls(true);
         page.setAccessControls(
@@ -361,6 +368,7 @@ public class PageRepositoryTest extends AbstractManagementRepositoryTest {
 
     private void assertUpdatedPage(final Page updatedPage) {
         assertNotNull("Page to update not found", updatedPage);
+        assertEquals("Invalid parent id.", "updatePage-hrid", updatedPage.getHrid());
         assertEquals("Invalid saved page name.", "New name", updatedPage.getName());
         assertEquals("Invalid page content.", "New content", updatedPage.getContent());
         assertEquals("Invalid reference id.", "my-api-2", updatedPage.getReferenceId());
@@ -370,6 +378,7 @@ public class PageRepositoryTest extends AbstractManagementRepositoryTest {
         assertTrue("Invalid updatedAt.", compareDate(new Date(1486771200000L), updatedPage.getUpdatedAt()));
         assertTrue("Invalid createdAt.", compareDate(new Date(1486772200000L), updatedPage.getCreatedAt()));
         assertEquals("Invalid parent id.", "parent-123", updatedPage.getParentId());
+        assertEquals("Invalid parent id.", "parent-123-hrid", updatedPage.getParentHrid());
         assertTrue("Invalid homepage.", updatedPage.isHomepage());
         assertTrue("Invalid ACL excluded value.", updatedPage.isExcludedAccessControls());
         assertTrue("Invalid ACL controls.", !updatedPage.getAccessControls().isEmpty());
@@ -507,5 +516,33 @@ public class PageRepositoryTest extends AbstractManagementRepositoryTest {
                 .search(new PageCriteria.Builder().referenceType(PageReferenceType.API.name()).referenceId("api-deleted").build())
                 .size()
         );
+    }
+
+    @Test
+    public void should_update_pages_cross_ids() throws Exception {
+        // Given existing pages with cross ids updated
+        Optional<Page> page3Optional = pageRepository.findById("page3");
+        assertTrue(page3Optional.isPresent());
+        assertNull(page3Optional.get().getCrossId());
+        var page3 = page3Optional.get();
+        page3.setCrossId("page3-cross-id-updated");
+
+        Optional<Page> homeOptional = pageRepository.findById("home");
+        assertTrue(homeOptional.isPresent());
+        assertNull(homeOptional.get().getCrossId());
+        var homePage = homeOptional.get();
+        homePage.setCrossId("home-cross-id-updated");
+
+        // When updating in the database the cross ids of the plans
+        pageRepository.updateCrossIds(List.of(page3, homePage));
+
+        // Then the plans cross IDs are updated
+        Optional<Page> updatedPage3 = pageRepository.findById("page3");
+        assertTrue(updatedPage3.isPresent());
+        assertEquals("page3-cross-id-updated", updatedPage3.get().getCrossId());
+
+        Optional<Page> updatedHomePage = pageRepository.findById("home");
+        assertTrue(updatedHomePage.isPresent());
+        assertEquals("home-cross-id-updated", updatedHomePage.get().getCrossId());
     }
 }

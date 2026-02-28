@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -51,7 +51,7 @@ import org.springframework.core.env.StandardEnvironment;
  * @author David BRASSELY (david at gravitee.io)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class IdentityProviderManagerImpl implements IdentityProviderManager {
 
     private final Map<String, IdentityProvider> identityProviders = new HashMap<>();
@@ -142,17 +142,16 @@ public class IdentityProviderManagerImpl implements IdentityProviderManager {
 
                                 // add missing converters in this newly created environment
                                 // this syntax allows a property of any kind to be converted from a secret. eg. Secret +> String -> Double
-                                this.getConversionService()
-                                    .addConverterFactory(
-                                        new ConverterFactory<Secret, Object>() {
-                                            final ConversionService conversionService = DefaultConversionService.getSharedInstance();
+                                this.getConversionService().addConverterFactory(
+                                    new ConverterFactory<Secret, Object>() {
+                                        final ConversionService conversionService = DefaultConversionService.getSharedInstance();
 
-                                            @Nonnull
-                                            public <C> Converter<Secret, C> getConverter(@Nonnull Class<C> targetType) {
-                                                return source -> conversionService.convert(source.asString(), targetType);
-                                            }
+                                        @Nonnull
+                                        public <C> Converter<Secret, C> getConverter(@Nonnull Class<C> targetType) {
+                                            return source -> conversionService.convert(source.asString(), targetType);
                                         }
-                                    );
+                                    }
+                                );
                                 // byte[] has to be created separately
                                 this.getConversionService().addConverter(Secret.class, String.class, Secret::asString);
                             }

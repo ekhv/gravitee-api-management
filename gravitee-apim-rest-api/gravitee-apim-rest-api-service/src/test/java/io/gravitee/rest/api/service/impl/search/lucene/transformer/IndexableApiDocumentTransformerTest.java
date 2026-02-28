@@ -17,6 +17,7 @@ package io.gravitee.rest.api.service.impl.search.lucene.transformer;
 
 import static io.gravitee.rest.api.service.impl.search.lucene.DocumentTransformer.FIELD_REFERENCE_ID;
 import static io.gravitee.rest.api.service.impl.search.lucene.DocumentTransformer.FIELD_REFERENCE_TYPE;
+import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_ALLOW_IN_API_PRODUCTS;
 import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_CATEGORIES;
 import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_CATEGORIES_SPLIT;
 import static io.gravitee.rest.api.service.impl.search.lucene.transformer.ApiDocumentTransformer.FIELD_DEFINITION_VERSION;
@@ -59,7 +60,6 @@ import io.gravitee.apim.core.search.model.IndexableApi;
 import io.gravitee.common.component.Lifecycle;
 import io.gravitee.definition.model.DefinitionVersion;
 import io.gravitee.definition.model.services.healthcheck.EndpointHealthCheckService;
-import io.gravitee.definition.model.v4.ApiType;
 import io.gravitee.rest.api.service.ApiService;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -177,6 +177,9 @@ public class IndexableApiDocumentTransformerTest {
 
             // origin
             softly.assertThat(result.getField(FIELD_ORIGIN).stringValue()).isEqualTo("management");
+
+            // allow_in_api_products should not be indexed when missing in definition
+            softly.assertThat(result.getField(FIELD_ALLOW_IN_API_PRODUCTS)).isNull();
         });
     }
 
@@ -234,8 +237,7 @@ public class IndexableApiDocumentTransformerTest {
     void should_transform_a_federated_api() {
         // Given
         var indexable = new IndexableApi(
-            ApiFixtures
-                .aFederatedApi()
+            ApiFixtures.aFederatedApi()
                 .toBuilder()
                 .id(API_ID)
                 .lifecycleState(Api.LifecycleState.STARTED)
@@ -331,7 +333,40 @@ public class IndexableApiDocumentTransformerTest {
                 .extracting(IndexableField::stringValue)
                 .contains("Category1", "Category2");
             softly.assertThat(result.getFields(FIELD_HOSTS)).extracting(IndexableField::stringValue).contains("native.kafka");
+            softly.assertThat(result.getField(FIELD_ALLOW_IN_API_PRODUCTS)).isNull();
         });
+    }
+
+    @Test
+    void should_index_v4_api_paths_and_hosts_lowercase() {
+        var api = ApiFixtures.aProxyApiV4()
+            .toBuilder()
+            .id(API_ID)
+            .apiDefinitionHttpV4(
+                io.gravitee.definition.model.v4.Api.builder()
+                    .allowedInApiProducts(true)
+                    .listeners(
+                        List.of(
+                            io.gravitee.definition.model.v4.listener.http.HttpListener.builder()
+                                .paths(
+                                    List.of(
+                                        io.gravitee.definition.model.v4.listener.http.Path.builder()
+                                            .path("/TestPath")
+                                            .host("api.TestHost.com")
+                                            .build()
+                                    )
+                                )
+                                .build()
+                        )
+                    )
+                    .build()
+            )
+            .build();
+        var indexable = new IndexableApi(api, PRIMARY_OWNER, Map.of(), Set.of());
+        var result = cut.transform(indexable);
+        assertThat(result.getFields("paths_lowercase")[0].stringValue()).isEqualTo("/testpath");
+        assertThat(result.getFields("hosts_lowercase")[0].stringValue()).isEqualTo("api.testhost.com");
+        assertThat(result.getField(FIELD_ALLOW_IN_API_PRODUCTS).stringValue()).isEqualTo("true");
     }
 
     @Test
@@ -385,48 +420,6 @@ public class IndexableApiDocumentTransformerTest {
         // Assertions
         assertThat(sortedByBytesRef).isEqualTo(expectedSorted);
         assertThat(sortedByCollator).isEqualTo(expectedSorted);
-    }
-
-    @Test
-    public void generate_api_type_v4_native() {
-        Api api = Api.builder().definitionVersion(DefinitionVersion.V4).type(ApiType.NATIVE).build();
-        String apiType = new IndexableApiDocumentTransformer().generateApiType(api);
-        assertThat(apiType).isEqualTo("V4_KAFKA");
-    }
-
-    @Test
-    public void generate_api_type_v4_proxy() {
-        Api api = Api.builder().definitionVersion(DefinitionVersion.V4).type(ApiType.PROXY).build();
-        String apiType = new IndexableApiDocumentTransformer().generateApiType(api);
-        assertThat(apiType).isEqualTo("V4_HTTP_PROXY");
-    }
-
-    @Test
-    public void generate_api_type_v4_message() {
-        Api api = Api.builder().definitionVersion(DefinitionVersion.V4).type(ApiType.MESSAGE).build();
-        String apiType = new IndexableApiDocumentTransformer().generateApiType(api);
-        assertThat(apiType).isEqualTo("V4_MESSAGE");
-    }
-
-    @Test
-    public void generate_api_type_v2() {
-        Api api = Api.builder().definitionVersion(DefinitionVersion.V2).build();
-        String apiType = new IndexableApiDocumentTransformer().generateApiType(api);
-        assertThat(apiType).isEqualTo("V2");
-    }
-
-    @Test
-    public void generate_api_type_federated() {
-        Api api = Api.builder().definitionVersion(DefinitionVersion.FEDERATED).build();
-        String apiType = new IndexableApiDocumentTransformer().generateApiType(api);
-        assertThat(apiType).isEqualTo("FEDERATED");
-    }
-
-    @Test
-    public void generate_api_type_federated_agent() {
-        Api api = Api.builder().definitionVersion(DefinitionVersion.FEDERATED_AGENT).build();
-        String apiType = new IndexableApiDocumentTransformer().generateApiType(api);
-        assertThat(apiType).isEqualTo("FEDERATED_AGENT");
     }
 
     @Nested
@@ -528,8 +521,9 @@ public class IndexableApiDocumentTransformerTest {
             var apiDocument = apiDocumentTransformer.transform(genericApiEntity);
 
             // Then
-            assertThat(indexableApiDocument.getField(FIELD_HAS_HEALTH_CHECK).stringValue())
-                .isEqualTo(apiDocument.getField(FIELD_HAS_HEALTH_CHECK).stringValue());
+            assertThat(indexableApiDocument.getField(FIELD_HAS_HEALTH_CHECK).stringValue()).isEqualTo(
+                apiDocument.getField(FIELD_HAS_HEALTH_CHECK).stringValue()
+            );
         }
 
         @Test
@@ -544,8 +538,9 @@ public class IndexableApiDocumentTransformerTest {
             var apiDocument = apiDocumentTransformer.transform(genericApiEntity);
 
             // Then
-            assertThat(indexableApiDocument.getField(FIELD_ORIGIN).stringValue())
-                .isEqualTo(apiDocument.getField(FIELD_ORIGIN).stringValue());
+            assertThat(indexableApiDocument.getField(FIELD_ORIGIN).stringValue()).isEqualTo(
+                apiDocument.getField(FIELD_ORIGIN).stringValue()
+            );
         }
 
         private Api createV2ApiWithFullData() {
@@ -553,19 +548,16 @@ public class IndexableApiDocumentTransformerTest {
         }
 
         private Api createV2ApiWithPaths() {
-            return ApiFixtures
-                .aProxyApiV2()
+            return ApiFixtures.aProxyApiV2()
                 .toBuilder()
                 .apiDefinition(
-                    io.gravitee.definition.model.Api
-                        .builder()
+                    io.gravitee.definition.model.Api.builder()
                         .id("api-id")
                         .name("api-name")
                         .version("1.0.0")
                         .definitionVersion(DefinitionVersion.V2)
                         .proxy(
-                            io.gravitee.definition.model.Proxy
-                                .builder()
+                            io.gravitee.definition.model.Proxy.builder()
                                 .virtualHosts(
                                     List.of(
                                         new io.gravitee.definition.model.VirtualHost("host1", "/path1"),
@@ -580,20 +572,17 @@ public class IndexableApiDocumentTransformerTest {
         }
 
         private Api createV2ApiWithTags() {
-            return ApiFixtures
-                .aProxyApiV2()
+            return ApiFixtures.aProxyApiV2()
                 .toBuilder()
                 .apiDefinition(
-                    io.gravitee.definition.model.Api
-                        .builder()
+                    io.gravitee.definition.model.Api.builder()
                         .id("api-id")
                         .name("api-name")
                         .version("1.0.0")
                         .definitionVersion(DefinitionVersion.V2)
                         .tags(Set.of("tag1", "tag2", "tag3"))
                         .proxy(
-                            io.gravitee.definition.model.Proxy
-                                .builder()
+                            io.gravitee.definition.model.Proxy.builder()
                                 .virtualHosts(List.of(new io.gravitee.definition.model.VirtualHost("/path")))
                                 .build()
                         )
@@ -603,29 +592,24 @@ public class IndexableApiDocumentTransformerTest {
         }
 
         private Api createV2ApiWithHealthCheck() {
-            return ApiFixtures
-                .aProxyApiV2()
+            return ApiFixtures.aProxyApiV2()
                 .toBuilder()
                 .apiDefinition(
-                    io.gravitee.definition.model.Api
-                        .builder()
+                    io.gravitee.definition.model.Api.builder()
                         .id("api-id")
                         .name("api-name")
                         .version("1.0.0")
                         .definitionVersion(DefinitionVersion.V2)
                         .proxy(
-                            io.gravitee.definition.model.Proxy
-                                .builder()
+                            io.gravitee.definition.model.Proxy.builder()
                                 .virtualHosts(List.of(new io.gravitee.definition.model.VirtualHost("/path")))
                                 .groups(
                                     Set.of(
-                                        io.gravitee.definition.model.EndpointGroup
-                                            .builder()
+                                        io.gravitee.definition.model.EndpointGroup.builder()
                                             .name("default-group")
                                             .endpoints(
                                                 Set.of(
-                                                    io.gravitee.definition.model.Endpoint
-                                                        .builder()
+                                                    io.gravitee.definition.model.Endpoint.builder()
                                                         .name("default")
                                                         .type("http1")
                                                         .target("https://api.gravitee.io/echo")
@@ -644,8 +628,7 @@ public class IndexableApiDocumentTransformerTest {
         }
 
         private Api createV2ApiWithOriginContext() {
-            return ApiFixtures
-                .aProxyApiV2()
+            return ApiFixtures.aProxyApiV2()
                 .toBuilder()
                 .originContext(new io.gravitee.rest.api.model.context.OriginContext.Management())
                 .build();
@@ -694,8 +677,7 @@ public class IndexableApiDocumentTransformerTest {
 
                 @Override
                 public io.gravitee.rest.api.model.PrimaryOwnerEntity getPrimaryOwner() {
-                    return io.gravitee.rest.api.model.PrimaryOwnerEntity
-                        .builder()
+                    return io.gravitee.rest.api.model.PrimaryOwnerEntity.builder()
                         .id(PRIMARY_OWNER.id())
                         .email(PRIMARY_OWNER.email())
                         .displayName(PRIMARY_OWNER.displayName())
@@ -759,6 +741,11 @@ public class IndexableApiDocumentTransformerTest {
             SoftAssertions.assertSoftly(softly -> {
                 var newFieldNames = newDoc.getFields().stream().map(IndexableField::name).collect(Collectors.toSet());
                 var oldFieldNames = oldDoc.getFields().stream().map(IndexableField::name).collect(Collectors.toSet());
+
+                // allow_in_api_products is only indexed for V4 HTTP APIs in IndexableApiDocumentTransformer,
+                // while ApiDocumentTransformer may index it with a default value. Ignore that field for V2 equivalence.
+                newFieldNames.remove(FIELD_ALLOW_IN_API_PRODUCTS);
+                oldFieldNames.remove(FIELD_ALLOW_IN_API_PRODUCTS);
 
                 softly.assertThat(newFieldNames).isEqualTo(oldFieldNames);
 

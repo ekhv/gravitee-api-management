@@ -32,6 +32,7 @@ public class RoleScopesResourceTest extends AbstractResourceTest {
         List.of(
             "AUDIT",
             "CUSTOM_USER_FIELDS",
+            "DASHBOARD",
             "ENTRYPOINT",
             "ENVIRONMENT",
             "IDENTITY_PROVIDER",
@@ -52,6 +53,7 @@ public class RoleScopesResourceTest extends AbstractResourceTest {
             "ALERT",
             "API",
             "API_HEADER",
+            "API_PRODUCT",
             "APPLICATION",
             "AUDIT",
             "CATEGORY",
@@ -122,10 +124,17 @@ public class RoleScopesResourceTest extends AbstractResourceTest {
 
         assertAll(
             () -> assertEquals(HttpStatusCode.OK_200, response.getStatus()),
-            () -> assertThat(resultRoleScopes.size()).isEqualTo(6),
+            () -> assertThat(resultRoleScopes.size()).isEqualTo(7),
             () ->
-                assertThat(resultRoleScopes.keySet())
-                    .containsExactlyInAnyOrder("ORGANIZATION", "ENVIRONMENT", "API", "APPLICATION", "INTEGRATION", "CLUSTER"),
+                assertThat(resultRoleScopes.keySet()).containsExactlyInAnyOrder(
+                    "ORGANIZATION",
+                    "ENVIRONMENT",
+                    "API",
+                    "APPLICATION",
+                    "INTEGRATION",
+                    "CLUSTER",
+                    "API_PRODUCT"
+                ),
             () -> assertThat(resultRoleScopes.get("ORGANIZATION")).isEqualTo(EXPECTED_ROLE_SCOPES.get("ORGANIZATION")),
             () -> assertThat(resultRoleScopes.get("ENVIRONMENT")).isEqualTo(EXPECTED_ROLE_SCOPES.get("ENVIRONMENT")),
             () -> assertThat(resultRoleScopes.get("API")).isEqualTo(EXPECTED_ROLE_SCOPES.get("API")),

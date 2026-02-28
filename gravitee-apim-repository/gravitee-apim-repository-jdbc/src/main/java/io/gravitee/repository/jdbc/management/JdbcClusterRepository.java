@@ -36,12 +36,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.CollectionUtils;
 
-@Slf4j
+@CustomLog
 @Repository
 public class JdbcClusterRepository extends JdbcAbstractCrudRepository<Cluster, String> implements ClusterRepository {
 
@@ -59,8 +59,7 @@ public class JdbcClusterRepository extends JdbcAbstractCrudRepository<Cluster, S
 
     @Override
     protected JdbcObjectMapper<Cluster> buildOrm() {
-        return JdbcObjectMapper
-            .builder(Cluster.class, this.tableName, "id")
+        return JdbcObjectMapper.builder(Cluster.class, this.tableName, "id")
             .addColumn("id", Types.NVARCHAR, String.class)
             .addColumn("created_at", Types.TIMESTAMP, Instant.class)
             .addColumn("updated_at", Types.TIMESTAMP, Instant.class)
@@ -108,8 +107,9 @@ public class JdbcClusterRepository extends JdbcAbstractCrudRepository<Cluster, S
         try {
             jdbcTemplate.update(getOrm().buildUpdatePreparedStatementCreator(cluster, cluster.getId()));
             storeGroups(cluster, true);
-            return findById(cluster.getId())
-                .orElseThrow(() -> new IllegalStateException("No cluster found with id [" + cluster.getId() + "]"));
+            return findById(cluster.getId()).orElseThrow(() ->
+                new IllegalStateException("No cluster found with id [" + cluster.getId() + "]")
+            );
         } catch (final IllegalStateException ex) {
             throw ex;
         } catch (final Exception ex) {
@@ -158,14 +158,14 @@ public class JdbcClusterRepository extends JdbcAbstractCrudRepository<Cluster, S
 
         var result = jdbcTemplate.query(
             getOrm().getSelectAllSql() +
-            " WHERE " +
-            andWhere +
-            " ORDER BY " +
-            sortField +
-            " " +
-            sortOrder +
-            " " +
-            createPagingClause(pageable.pageSize(), pageable.from()),
+                " WHERE " +
+                andWhere +
+                " ORDER BY " +
+                sortField +
+                " " +
+                sortOrder +
+                " " +
+                createPagingClause(pageable.pageSize(), pageable.from()),
             getOrm().getRowMapper(),
             andWhereParams.toArray()
         );
@@ -197,6 +197,55 @@ public class JdbcClusterRepository extends JdbcAbstractCrudRepository<Cluster, S
                 getOrm().getBatchStringSetter(clusterId, filtered)
             );
         }
+    }
+
+    @Override
+    public void deleteByEnvironmentId(String environmentId) throws TechnicalException {
+        log.debug("JdbcClusterRepository.deleteByEnvironmentId({})", environmentId);
+        try {
+            List<String> clusterIds = jdbcTemplate.queryForList(
+                "select id from " + this.tableName + " where environment_id = ?",
+                String.class,
+                environmentId
+            );
+
+            if (!clusterIds.isEmpty()) {
+                deleteClusterGroups(clusterIds);
+
+                jdbcTemplate.update("delete from " + this.tableName + " where environment_id = ?", environmentId);
+            }
+        } catch (final Exception ex) {
+            final String error = "Failed to delete clusters by environment id: " + environmentId;
+            log.error(error, ex);
+            throw new TechnicalException(error, ex);
+        }
+    }
+
+    @Override
+    public void deleteByOrganizationId(String organizationId) throws TechnicalException {
+        log.debug("JdbcClusterRepository.deleteByOrganizationId({})", organizationId);
+        try {
+            List<String> clusterIds = jdbcTemplate.queryForList(
+                "select id from " + this.tableName + " where organization_id = ?",
+                String.class,
+                organizationId
+            );
+
+            if (!clusterIds.isEmpty()) {
+                deleteClusterGroups(clusterIds);
+
+                jdbcTemplate.update("delete from " + this.tableName + " where organization_id = ?", organizationId);
+            }
+        } catch (final Exception ex) {
+            final String error = "Failed to delete clusters by organization id: " + organizationId;
+            log.error(error, ex);
+            throw new TechnicalException(error, ex);
+        }
+    }
+
+    private void deleteClusterGroups(List<String> clusterIds) {
+        String inClause = getOrm().buildInClause(clusterIds);
+        jdbcTemplate.update("delete from " + CLUSTER_GROUPS + " where cluster_id in (" + inClause + ")", clusterIds.toArray());
     }
 
     private void storeGroups(Cluster cluster, boolean deleteFirst) {

@@ -64,6 +64,7 @@ import { SnackBarService } from '../../../../services-ngx/snack-bar.service';
 import { Group } from '../../../../entities/group/group';
 import { GioPermissionService } from '../../../../shared/components/gio-permission/gio-permission.service';
 import { GioTableWrapperModule } from '../../../../shared/components/gio-table-wrapper/gio-table-wrapper.module';
+import { CurrentUserService } from '../../../../services-ngx/current-user.service';
 
 export interface EditMemberDialogData {
   group: Group;
@@ -230,6 +231,7 @@ export class GroupComponent implements OnInit {
     private router: Router,
     private permissionService: GioPermissionService,
     private matDialog: MatDialog,
+    private currentUserService: CurrentUserService,
   ) {}
 
   ngOnInit(): void {
@@ -243,7 +245,6 @@ export class GroupComponent implements OnInit {
         this.group.next(group);
         this.initializeForm(group);
         this.initialFormValues = this.groupForm.getRawValue();
-        this.hideActionsForReadOnlyUser();
         this.initializeDependents();
         this.disableForm();
       }),
@@ -261,7 +262,7 @@ export class GroupComponent implements OnInit {
 
   private fetchGroup(): Observable<Group> {
     return this.route.params.pipe(
-      map((params) => params.groupId),
+      map(params => params.groupId),
       tap((groupId: string) => {
         this.groupId = groupId;
         this.mode = groupId && groupId !== 'new' ? 'edit' : 'new';
@@ -297,12 +298,13 @@ export class GroupComponent implements OnInit {
 
   private initializeGroupMembers() {
     this.groupMembers$ = this.groupService.getMembers(this.groupId).pipe(
-      tap((members) => {
+      tap(members => {
         this.groupMembers.next(members.sort((a, b) => a.displayName.localeCompare(b.displayName)));
-        this.disableDeleteMember();
         this.maxInvitationsLimitReached = this.group.value.max_invitation <= this.groupMembers.value.length;
-        this.shouldAllowAddMembers();
         this.filterGroupMembers(this.membersDefaultFilters);
+        this.shouldAllowAddMembers();
+        this.hideActionsForReadOnlyUser();
+        this.disableDeleteMember();
       }),
       takeUntilDestroyed(this.destroyRef),
     );
@@ -311,7 +313,7 @@ export class GroupComponent implements OnInit {
   private initializeInvitations() {
     this.invitations$ = this.groupService.getInvitations(this.groupId).pipe(
       map((invitations: Invitation[]) => invitations.sort((a, b) => a.email.localeCompare(b.email))),
-      tap((invitations) => {
+      tap(invitations => {
         this.groupInvitations.next(invitations);
         this.filterGroupInvitations(this.invitationsDefaultFilters);
       }),
@@ -320,8 +322,8 @@ export class GroupComponent implements OnInit {
 
   private initializeGroupAPIs() {
     this.groupAPIs$ = this.groupService.getMemberships(this.groupId, 'api').pipe(
-      map((apis) => apis.sort((a, b) => a.name.localeCompare(b.name))),
-      tap((apis) => {
+      map(apis => apis.sort((a, b) => a.name.localeCompare(b.name))),
+      tap(apis => {
         this.groupAPIs.next(apis);
         this.filterGroupAPIs(this.apisDefaultFilters);
       }),
@@ -330,8 +332,8 @@ export class GroupComponent implements OnInit {
 
   private initializeGroupApplications() {
     this.groupApplications$ = this.groupService.getMemberships(this.groupId, 'application').pipe(
-      map((applications) => applications.sort((a, b) => a.name.localeCompare(b.name))),
-      tap((applications) => {
+      map(applications => applications.sort((a, b) => a.name.localeCompare(b.name))),
+      tap(applications => {
         this.groupApplications.next(applications);
         this.filterGroupApplications(this.applicationsDefaultFilters);
       }),
@@ -347,13 +349,24 @@ export class GroupComponent implements OnInit {
   }
 
   private checkEventRule(group: Group, eventType: string): boolean {
-    return group.event_rules.some((rule) => rule.event === eventType);
+    return group.event_rules.some(rule => rule.event === eventType);
   }
 
   private hideActionsForReadOnlyUser(): void {
-    if (!this.canUpdateGroup()) {
-      this.memberColumnDefs.pop();
-    }
+    const groupMembers = this.groupMembers.value;
+
+    this.currentUserService
+      .current()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(user => {
+        if (user) {
+          const index = groupMembers.findIndex(member => member.id === user.id && member.roles['GROUP'] === 'ADMIN');
+
+          if (!this.canUpdateGroup() && index === -1) {
+            this.memberColumnDefs.pop();
+          }
+        }
+      });
   }
 
   private updateEventRules(): void {
@@ -480,8 +493,8 @@ export class GroupComponent implements OnInit {
         filter(function (dialogResult: DeleteMemberDialogResult): boolean {
           return dialogResult.shouldDelete;
         }),
-        switchMap((dialogResult) => this.deleteMember(member, dialogResult)),
-        switchMap((dialogResult) => this.handleOwnershipTransfer(member, dialogResult)),
+        switchMap(dialogResult => this.deleteMember(member, dialogResult)),
+        switchMap(dialogResult => this.handleOwnershipTransfer(member, dialogResult)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
@@ -538,7 +551,7 @@ export class GroupComponent implements OnInit {
       .afterClosed()
       .pipe(
         filter((dialogResult: AddOrUpdateMemberDialogResult) => dialogResult?.memberships?.length > 0),
-        switchMap((dialogResult) =>
+        switchMap(dialogResult =>
           this.groupService.addOrUpdateMemberships(this.groupId, dialogResult?.memberships).pipe(
             tap(() => {
               this.snackBarService.success('Successfully saved edited member(s) of the group.');
@@ -575,7 +588,7 @@ export class GroupComponent implements OnInit {
       .afterClosed()
       .pipe(
         filter((dialogResult: AddOrUpdateMemberDialogResult) => dialogResult.memberships?.length > 0),
-        switchMap((dialogResult) =>
+        switchMap(dialogResult =>
           this.groupService.addOrUpdateMemberships(this.groupId, dialogResult.memberships).pipe(
             tap(() => {
               this.snackBarService.success('Successfully added member(s) to the group.');
@@ -610,9 +623,9 @@ export class GroupComponent implements OnInit {
       .afterClosed()
       .pipe(
         filter((dialogResult: InviteMemberDialogResult) => !!dialogResult && !!dialogResult.invitation),
-        switchMap((dialogResult) =>
+        switchMap(dialogResult =>
           this.groupService.inviteMember(this.groupId, dialogResult.invitation).pipe(
-            tap((response) => {
+            tap(response => {
               if (response.status === 200) {
                 this.snackBarService.success('Successfully invited user to the group.');
                 this.initializeInvitations();
@@ -649,7 +662,7 @@ export class GroupComponent implements OnInit {
       })
       .afterClosed()
       .pipe(
-        filter((confirmed) => confirmed),
+        filter(confirmed => confirmed),
         switchMap(() =>
           this.groupService.deleteInvitation(this.groupId, invitationId).pipe(
             tap(() => {

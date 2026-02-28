@@ -41,8 +41,7 @@ public class SharedPolicyGroupIdHelper {
     public static void addSPGIDFromHrid(ApiV4Spec spec, AuditInfo audit) {
         CollectionUtils.stream(spec.getFlows()).forEach(f -> addSPGIDFromHrid(f, audit));
         if (spec.getPlans() != null) {
-            CollectionUtils
-                .stream(spec.getPlans())
+            CollectionUtils.stream(spec.getPlans())
                 .flatMap(p -> CollectionUtils.stream(p.getFlows()))
                 .forEach(f -> addSPGIDFromHrid(f, audit));
         }
@@ -54,7 +53,7 @@ public class SharedPolicyGroupIdHelper {
         CollectionUtils.stream(flowV4.getSubscribe()).forEach(s -> addSPGIDFromHrid(s, audit));
         CollectionUtils.stream(flowV4.getPublish()).forEach(s -> addSPGIDFromHrid(s, audit));
         CollectionUtils.stream(flowV4.getInteract()).forEach(s -> addSPGIDFromHrid(s, audit));
-        CollectionUtils.stream(flowV4.getConnect()).forEach(s -> addSPGIDFromHrid(s, audit));
+        CollectionUtils.stream(flowV4.getEntrypointConnect()).forEach(s -> addSPGIDFromHrid(s, audit));
     }
 
     private static void addSPGIDFromHrid(StepV4 stepV4, AuditInfo auditInfo) {
@@ -74,8 +73,7 @@ public class SharedPolicyGroupIdHelper {
     public static void removeSPGID(ApiV4Spec spec) {
         CollectionUtils.stream(spec.getFlows()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
         if (spec.getPlans() != null) {
-            CollectionUtils
-                .stream(spec.getPlans())
+            CollectionUtils.stream(spec.getPlans())
                 .flatMap(p -> CollectionUtils.stream(p.getFlows()))
                 .forEach(SharedPolicyGroupIdHelper::removeSPGID);
         }
@@ -86,7 +84,7 @@ public class SharedPolicyGroupIdHelper {
         CollectionUtils.stream(flowV4.getResponse()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
         CollectionUtils.stream(flowV4.getSubscribe()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
         CollectionUtils.stream(flowV4.getPublish()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
-        CollectionUtils.stream(flowV4.getConnect()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
+        CollectionUtils.stream(flowV4.getEntrypointConnect()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
         CollectionUtils.stream(flowV4.getInteract()).forEach(SharedPolicyGroupIdHelper::removeSPGID);
     }
 

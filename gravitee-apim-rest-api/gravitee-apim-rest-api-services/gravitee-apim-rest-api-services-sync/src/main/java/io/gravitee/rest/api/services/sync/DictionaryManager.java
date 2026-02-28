@@ -23,14 +23,14 @@ import io.gravitee.rest.api.service.event.DictionaryEvent;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author Jeoffrey HAEYAERT (jeoffrey.haeyaert at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class DictionaryManager {
 
     @Autowired
@@ -85,10 +85,8 @@ public class DictionaryManager {
         // A dictionary needs to be restarted if its configuration or trigger has changed.
         return (
             (dictionary.getUpdatedAt() != null && dictionary.getUpdatedAt().after(startedDictionary.getUpdatedAt())) &&
-            (
-                !Objects.equals(dictionary.getProvider().getConfiguration(), startedDictionary.getProvider().getConfiguration()) ||
-                !Objects.equals(dictionary.getTrigger(), startedDictionary.getTrigger())
-            )
+            (!Objects.equals(dictionary.getProvider().getConfiguration(), startedDictionary.getProvider().getConfiguration()) ||
+                !Objects.equals(dictionary.getTrigger(), startedDictionary.getTrigger()))
         );
     }
 }

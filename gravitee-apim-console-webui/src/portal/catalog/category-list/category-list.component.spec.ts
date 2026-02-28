@@ -22,6 +22,7 @@ import { InteractivityChecker } from '@angular/cdk/a11y';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { GioConfirmDialogHarness, GioSaveBarHarness } from '@gravitee/ui-particles-angular';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTableHarness } from '@angular/material/table/testing';
 
 import { CategoryListComponent } from './category-list.component';
 import { CategoryListHarness } from './category-list.harness';
@@ -145,8 +146,9 @@ describe('CategoryListComponent', () => {
       expectGetCategoriesList();
     });
     it('should display empty message', async () => {
-      const tableRows = await componentHarness.getTableRows(harnessLoader);
-      expect(await tableRows[0].host().then((host) => host.text())).toContain('There are no categories for this environment.');
+      const table = await harnessLoader.getHarness(MatTableHarness);
+      const tableHost = await table.host();
+      expect(await tableHost.text()).toContain('There are no categories for this environment.');
     });
   });
 
@@ -160,7 +162,7 @@ describe('CategoryListComponent', () => {
       ]);
     });
     it('should show multiple categories', async () => {
-      expect(await componentHarness.getTableRows(harnessLoader).then((rows) => rows.length)).toEqual(3);
+      expect(await componentHarness.getTableRows(harnessLoader).then(rows => rows.length)).toEqual(3);
     });
     it('should sort categories by order', async () => {
       expect(await componentHarness.getNameByRowIndex(harnessLoader, 0)).toEqual('cat-1');
@@ -169,7 +171,7 @@ describe('CategoryListComponent', () => {
     });
     it('should show which categories are hidden', async () => {
       const rows = await componentHarness.getTableRows(harnessLoader);
-      const hiddenIcon = await rows[1].getCells({ columnName: 'name' }).then((cells) => cells[0].getHarnessOrNull(MatIconHarness));
+      const hiddenIcon = await rows[1].getCells({ columnName: 'name' }).then(cells => cells[0].getHarnessOrNull(MatIconHarness));
       expect(hiddenIcon).toBeTruthy();
     });
     it('should show api count', async () => {

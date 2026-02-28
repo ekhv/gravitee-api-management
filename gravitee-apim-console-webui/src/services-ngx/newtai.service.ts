@@ -15,9 +15,11 @@
  */
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { ElAiPromptState, GioElService } from '@gravitee/ui-particles-angular';
-import { catchError, map } from 'rxjs/operators';
+import { EMPTY, Observable, of } from 'rxjs';
+import { ElAiPromptState, FeedbackSubmission, GioElService } from '@gravitee/ui-particles-angular';
+import { catchError, map, tap } from 'rxjs/operators';
+
+import { SnackBarService } from './snack-bar.service';
 
 import { Constants } from '../entities/Constants';
 
@@ -39,11 +41,13 @@ export class NewtAIService {
   private httpClient = inject(HttpClient);
   private constants = inject(Constants);
   private gioElService = inject(GioElService);
+  private snackBarService = inject(SnackBarService);
   private context: Partial<Record<NewtAIContextKeys, string>> = {};
 
   constructor() {
     if (this.constants?.org?.settings?.elGen?.enabled ?? false) {
-      this.gioElService.promptCallback = (p) => this.promptEL(p);
+      this.gioElService.promptCallback = p => this.promptEL(p);
+      this.gioElService.feedbackCallback = fs => this.submitFeedback(fs);
     }
   }
 
@@ -51,8 +55,29 @@ export class NewtAIService {
     return this.httpClient
       .post<NewtAIResponse>(`${this.constants.env.v2BaseURL}/newtai/el/_generate`, { message: prompt, context: this.context })
       .pipe(
-        map(({ message }) => ({ el: message })),
-        catchError((error) => of({ message: error['message'] as string })),
+        map(({ message, feedbackRequestId }) => ({
+          el: message,
+          feedbackRequestId,
+        })),
+        catchError(error => of({ message: error['message'] as string })),
+      );
+  }
+  public submitFeedback(fs: FeedbackSubmission): Observable<void> {
+    return this.httpClient
+      .post<void>(`${this.constants.env.v2BaseURL}/newtai/el/feedback`, {
+        answerHelpful: fs.feedback === 'helpful',
+        feedbackRequestId: {
+          chatId: fs.feedbackRequestId?.chatId,
+          userMessageId: fs.feedbackRequestId?.userMessageId,
+          agentMessageId: fs.feedbackRequestId?.agentMessageId,
+        },
+      })
+      .pipe(
+        tap(() => this.snackBarService.success('Thanks for your feedback!')),
+        catchError(error => {
+          this.snackBarService.error(error.error?.message ?? 'Error while submitting feedback.');
+          return EMPTY;
+        }),
       );
   }
 

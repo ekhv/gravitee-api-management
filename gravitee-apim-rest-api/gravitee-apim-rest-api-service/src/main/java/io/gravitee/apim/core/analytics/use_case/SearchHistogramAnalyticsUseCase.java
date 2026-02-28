@@ -36,10 +36,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import lombok.CustomLog;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
+@CustomLog
 @RequiredArgsConstructor
 @UseCase
 public class SearchHistogramAnalyticsUseCase {
@@ -128,19 +128,15 @@ public class SearchHistogramAnalyticsUseCase {
         // Dump analytics data into metric buckets.
         List<HistogramAnalytics.Bucket> buckets = new ArrayList<>();
         Timestamp timestamp = new Timestamp(from, to, Duration.ofMillis(input.interval()));
+
         eventAnalytics.ifPresent(
-            (
-                analytics ->
+            (analytics ->
                     analytics
                         .values()
-                        .forEach((aggName, values) -> {
-                            if (!values.isEmpty()) {
-                                String field = values.keySet().iterator().next();
-                                List<Long> valueList = values.get(field);
-                                buckets.add(new HistogramAnalytics.MetricBucket(aggName, field, valueList));
-                            }
-                        })
-            )
+                        .forEach((key, values) -> {
+                            HistogramAnalytics.MetricBucket bucket = new HistogramAnalytics.MetricBucket(key, key, values);
+                            buckets.add(bucket);
+                        }))
         );
 
         return new Output(timestamp, buckets, Collections.emptyMap());

@@ -50,6 +50,7 @@ import io.gravitee.gateway.api.stream.ReadWriteStream;
 import io.gravitee.gateway.core.component.CompositeComponentProvider;
 import io.gravitee.gateway.env.RequestTimeoutConfiguration;
 import io.gravitee.gateway.handlers.accesspoint.manager.AccessPointManager;
+import io.gravitee.gateway.handlers.api.registry.ApiProductRegistry;
 import io.gravitee.gateway.opentelemetry.TracingContext;
 import io.gravitee.gateway.reactive.api.ApiType;
 import io.gravitee.gateway.reactive.api.ExecutionFailure;
@@ -111,6 +112,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.helpers.NOPLogger;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -283,6 +285,12 @@ class DefaultApiReactorTest {
     @Mock
     private EventManager eventManager;
 
+    @Mock
+    private ApiProductRegistry apiProductRegistry;
+
+    @Mock
+    private ApiProductPlanPolicyManagerFactory apiProductPlanPolicyManagerFactory;
+
     private TestScheduler testScheduler;
 
     private DefaultApiReactor cut;
@@ -293,6 +301,7 @@ class DefaultApiReactorTest {
 
     @BeforeEach
     public void init() throws Exception {
+        lenient().when(ctx.withLogger(any())).thenReturn(NOPLogger.NOP_LOGGER);
         lenient().when(ctx.request()).thenReturn(request);
         lenient().when(ctx.response()).thenReturn(response);
         lenient().when(ctx.getInternalAttribute(ATTR_INTERNAL_INVOKER)).thenReturn(defaultInvoker);
@@ -316,12 +325,12 @@ class DefaultApiReactorTest {
         lenient().when(api.getEnvironmentId()).thenReturn(ENVIRONMENT_ID);
         lenient().when(apiDefinition.getType()).thenReturn(io.gravitee.definition.model.v4.ApiType.PROXY);
         lenient().when(apiDefinition.getAnalytics()).thenReturn(new Analytics());
-        lenient().when(apiProcessorChainFactory.beforeHandle(api, tracingContext)).thenReturn(beforeHandleProcessors);
-        lenient().when(apiProcessorChainFactory.afterHandle(api, tracingContext)).thenReturn(afterHandleProcessors);
-        lenient().when(apiProcessorChainFactory.beforeSecurityChain(api, tracingContext)).thenReturn(beforeSecurityChainProcessors);
-        lenient().when(apiProcessorChainFactory.beforeApiExecution(api, tracingContext)).thenReturn(beforeApiExecutionProcessors);
-        lenient().when(apiProcessorChainFactory.afterApiExecution(api, tracingContext)).thenReturn(afterApiExecutionProcessors);
-        lenient().when(apiProcessorChainFactory.onError(api, tracingContext)).thenReturn(onErrorProcessors);
+        lenient().when(apiProcessorChainFactory.beforeHandle(api)).thenReturn(beforeHandleProcessors);
+        lenient().when(apiProcessorChainFactory.afterHandle(api)).thenReturn(afterHandleProcessors);
+        lenient().when(apiProcessorChainFactory.beforeSecurityChain(api)).thenReturn(beforeSecurityChainProcessors);
+        lenient().when(apiProcessorChainFactory.beforeApiExecution(api)).thenReturn(beforeApiExecutionProcessors);
+        lenient().when(apiProcessorChainFactory.afterApiExecution(api)).thenReturn(afterApiExecutionProcessors);
+        lenient().when(apiProcessorChainFactory.onError(api)).thenReturn(onErrorProcessors);
 
         lenient().when(flowChainFactory.createOrganizationFlow(api, tracingContext)).thenReturn(platformFlowChain);
         lenient().when(platformFlowChain.execute(ctx, ExecutionPhase.REQUEST)).thenReturn(spyRequestPlatformFlowChain);
@@ -385,30 +394,31 @@ class DefaultApiReactorTest {
     private DefaultApiReactor buildApiReactor() {
         DefaultApiReactor defaultApiReactor = null;
         try {
-            defaultApiReactor =
-                new DefaultApiReactor(
-                    api,
-                    new DefaultDeploymentContext(),
-                    apiComponentProvider,
-                    new ArrayList<>(),
-                    policyManager,
-                    entrypointConnectorPluginManager,
-                    apiServicePluginManager,
-                    endpointManager,
-                    resourceLifecycleManager,
-                    apiProcessorChainFactory,
-                    flowChainFactory,
-                    v4FlowChainFactory,
-                    configuration,
-                    node,
-                    requestTimeoutConfiguration,
-                    reporterService,
-                    accessPointManager,
-                    eventManager,
-                    new HttpAcceptorFactory(false),
-                    tracingContext,
-                    logGuardService
-                );
+            defaultApiReactor = new DefaultApiReactor(
+                api,
+                new DefaultDeploymentContext(),
+                apiComponentProvider,
+                new ArrayList<>(),
+                policyManager,
+                entrypointConnectorPluginManager,
+                apiServicePluginManager,
+                endpointManager,
+                resourceLifecycleManager,
+                apiProcessorChainFactory,
+                flowChainFactory,
+                v4FlowChainFactory,
+                configuration,
+                node,
+                requestTimeoutConfiguration,
+                reporterService,
+                accessPointManager,
+                eventManager,
+                new HttpAcceptorFactory(false),
+                tracingContext,
+                logGuardService,
+                apiProductRegistry,
+                apiProductPlanPolicyManagerFactory
+            );
             ReflectionTestUtils.setField(defaultApiReactor, "entrypointConnectorResolver", entrypointConnectorResolver);
             ReflectionTestUtils.setField(defaultApiReactor, "defaultInvoker", defaultInvoker);
             defaultApiReactor.doStart();
@@ -838,15 +848,15 @@ class DefaultApiReactorTest {
 
         final ArgumentCaptor<Handler<ProxyConnection>> handlerArgumentCaptor = ArgumentCaptor.forClass(Handler.class);
         doAnswer(invocation -> {
-                ConnectionHandlerAdapter connectionHandlerAdapter = invocation.getArgument(2);
-                final Try<Object> nextEmitter = ReflectionUtils.tryToReadFieldValue(
-                    ConnectionHandlerAdapter.class,
-                    "nextEmitter",
-                    connectionHandlerAdapter
-                );
-                ((CompletableEmitter) nextEmitter.get()).onComplete();
-                return null;
-            })
+            ConnectionHandlerAdapter connectionHandlerAdapter = invocation.getArgument(2);
+            final Try<Object> nextEmitter = ReflectionUtils.tryToReadFieldValue(
+                ConnectionHandlerAdapter.class,
+                "nextEmitter",
+                connectionHandlerAdapter
+            );
+            ((CompletableEmitter) nextEmitter.get()).onComplete();
+            return null;
+        })
             .when(endpointInvoker)
             .invoke(any(io.gravitee.gateway.api.ExecutionContext.class), any(ReadWriteStream.class), any(Handler.class));
         cut.handle(ctx).test().assertComplete();
@@ -906,23 +916,20 @@ class DefaultApiReactorTest {
         SubscriptionListener subscriptionListener = new SubscriptionListener();
         subscriptionListener.setEntrypoints(new ArrayList<>());
         when(apiDefinition.getListeners()).thenReturn(List.of(httpListener, subscriptionListener));
-        when(accessPointManager.getByEnvironmentId(ENVIRONMENT_ID))
-            .thenReturn(
-                List.of(
-                    ReactableAccessPoint
-                        .builder()
-                        .environmentId(ENVIRONMENT_ID)
-                        .host("host1")
-                        .target(ReactableAccessPoint.Target.GATEWAY)
-                        .build(),
-                    ReactableAccessPoint
-                        .builder()
-                        .environmentId(ENVIRONMENT_ID)
-                        .host("host2")
-                        .target(ReactableAccessPoint.Target.GATEWAY)
-                        .build()
-                )
-            );
+        when(accessPointManager.getByEnvironmentId(ENVIRONMENT_ID)).thenReturn(
+            List.of(
+                ReactableAccessPoint.builder()
+                    .environmentId(ENVIRONMENT_ID)
+                    .host("host1")
+                    .target(ReactableAccessPoint.Target.GATEWAY)
+                    .build(),
+                ReactableAccessPoint.builder()
+                    .environmentId(ENVIRONMENT_ID)
+                    .host("host2")
+                    .target(ReactableAccessPoint.Target.GATEWAY)
+                    .build()
+            )
+        );
 
         cut = buildApiReactor();
         List<Acceptor<?>> acceptors = cut.acceptors();

@@ -22,6 +22,7 @@ import { CommonModule } from '@angular/common';
 import { Observable } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map, shareReplay } from 'rxjs/operators';
+import { MatButtonModule } from '@angular/material/button';
 
 import { timeFrames } from '../../../../../shared/utils/timeFrameRanges';
 import {
@@ -43,16 +44,22 @@ import { ApiAnalyticsWidgetService, ApiAnalyticsWidgetUrlParamsData } from '../a
 import { GioChartPieModule } from '../../../../../shared/components/gio-chart-pie/gio-chart-pie.module';
 import { Stats, StatsField } from '../../../../../entities/management-api-v2/analytics/analyticsStats';
 import { ApiPlanV2Service } from '../../../../../services-ngx/api-plan-v2.service';
+import { StatsUnitType } from '../../../../../shared/components/analytics-stats/analytics-stats.component';
+import { ApiNavigationModule } from '../../../api-navigation/api-navigation.module';
+import { MenuItemHeader } from '../../../api-navigation/MenuGroupItem';
+import { UrlQueryParamsData } from '../../../../../services-ngx/api-analytics-v2.service';
 
 type WidgetDisplayConfig = {
   title: string;
   statsKey?: Stats;
-  statsUnit?: string;
+  statsUnit?: StatsUnitType;
   tooltip: string;
   shouldSortBuckets?: boolean;
   type: ApiAnalyticsWidgetType;
   isClickable?: boolean;
   relativePath?: string;
+  minHeight?: 'small' | 'medium' | 'large';
+  lineEnableMarkers?: boolean;
 };
 
 interface Range {
@@ -74,6 +81,8 @@ type WidgetDataConfig = {
   statsField?: StatsField;
   ranges?: Range[];
   orderBy?: string;
+  filterQueryParams?: (queryParams: ApiAnalyticsWidgetUrlParamsData) => ApiAnalyticsWidgetUrlParamsData;
+  mapQueryParams?: (queryParams: ApiAnalyticsWidgetUrlParamsData) => UrlQueryParamsData;
   tableData?: {
     columns: WidgetDataConfigColumn[];
   };
@@ -100,6 +109,8 @@ export type ApiAnalyticsDashboardWidgetConfig = WidgetDisplayConfig & WidgetData
     ApiAnalyticsProxyFilterBarComponent,
     ApiAnalyticsWidgetComponent,
     GioChartPieModule,
+    ApiNavigationModule,
+    MatButtonModule,
   ],
   templateUrl: './api-analytics-proxy.component.html',
   styleUrl: './api-analytics-proxy.component.scss',
@@ -115,13 +126,16 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
 
   public activeFilters: Signal<ApiAnalyticsProxyFilters> = computed(() => this.mapQueryParamsToFilters(this.activatedRouteQueryParams()));
 
+  public menuItemHeader: MenuItemHeader = {
+    title: 'API Traffic',
+  };
+
   private topRowWidgets: ApiAnalyticsDashboardWidgetConfig[] = [
     {
       type: 'stats',
       apiId: this.apiId,
       title: 'Total Requests',
       statsKey: 'count',
-      statsUnit: '',
       tooltip: '',
       shouldSortBuckets: false,
       statsField: 'gateway-response-time-ms',
@@ -165,7 +179,6 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
       apiId: this.apiId,
       title: 'Requests Per Second',
       statsKey: 'rps',
-      statsUnit: '',
       tooltip: '',
       shouldSortBuckets: false,
       statsField: 'gateway-response-time-ms',
@@ -181,6 +194,7 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
       tooltip: 'Displays the distribution of HTTP status codes returned by the API',
       groupByField: 'status',
       analyticsType: 'GROUP_BY',
+      minHeight: 'medium',
       ranges: [
         { label: '100-199', value: '100:199', color: '#2B72FB' },
         { label: '200-299', value: '200:299', color: '#64BDC6' },
@@ -202,6 +216,7 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
       tooltip: 'Visualizes the breakdown of HTTP status codes (2xx, 4xx, 5xx) across time',
       shouldSortBuckets: true,
       analyticsType: 'HISTOGRAM',
+      minHeight: 'medium',
     },
     {
       type: 'line',
@@ -222,6 +237,7 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
       tooltip: 'Measures response time for gateway and endpoint',
       shouldSortBuckets: false,
       analyticsType: 'HISTOGRAM',
+      minHeight: 'medium',
     },
     {
       type: 'line',
@@ -230,6 +246,7 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
       tooltip: 'Hits repartition by application',
       shouldSortBuckets: false,
       analyticsType: 'HISTOGRAM',
+      minHeight: 'medium',
       aggregations: [
         {
           type: AggregationTypes.FIELD,
@@ -331,9 +348,9 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
   ];
 
   apiPlans$ = this.planService
-    .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED', 'DEPRECATED', 'CLOSED'], undefined, 1, 9999)
+    .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED', 'DEPRECATED', 'CLOSED'], undefined, undefined, 1, 9999)
     .pipe(
-      map((plans) => plans.data),
+      map(plans => plans.data),
       shareReplay(1),
     );
 
@@ -349,15 +366,15 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Initialize widgets
-    this.topRowTransformed$ = this.topRowWidgets.map((widgetConfig) => {
+    this.topRowTransformed$ = this.topRowWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
 
-    this.leftColumnTransformed$ = this.leftColumnWidgets.map((widgetConfig) => {
+    this.leftColumnTransformed$ = this.leftColumnWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
 
-    this.rightColumnTransformed$ = this.rightColumnWidgets.map((widgetConfig) => {
+    this.rightColumnTransformed$ = this.rightColumnWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
   }
@@ -372,6 +389,23 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.apiAnalyticsWidgetService.clearStatsCache();
+  }
+
+  navigateToLogs(): void {
+    const queryParams = this.activatedRoute.snapshot.queryParams;
+
+    const queryParamsForLogs = {
+      from: this.getFromAndToTimestamps(queryParams).fromTimestamp,
+      to: this.getFromAndToTimestamps(queryParams).toTimestamp,
+      statuses: queryParams.httpStatuses,
+      planIds: queryParams.plans,
+      applicationIds: queryParams.applications,
+    };
+
+    this.router.navigate(['../runtime-logs'], {
+      relativeTo: this.activatedRoute,
+      queryParams: queryParamsForLogs,
+    });
   }
 
   private updateQueryParamsFromFilters(filters: ApiAnalyticsProxyFilters): void {
@@ -424,7 +458,7 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
       };
     }
 
-    const timeFrame = timeFrames.find((tf) => tf.id === normalizedPeriod) || timeFrames.find((tf) => tf.id === '1d');
+    const timeFrame = timeFrames.find(tf => tf.id === normalizedPeriod) || timeFrames.find(tf => tf.id === '1d');
     return {
       timeRangeParams: timeFrame.timeFrameRangesParams(),
       ...filters,
@@ -471,5 +505,20 @@ export class ApiAnalyticsProxyComponent implements OnInit, OnDestroy {
   private calculateCustomInterval(from: number, to: number, nbValuesByBucket = 30): number {
     const range: number = to - from;
     return Math.floor(range / nbValuesByBucket);
+  }
+
+  private getFromAndToTimestamps(queryParams: any) {
+    let fromTimestamp: number;
+    let toTimestamp: number;
+    if (queryParams.period === 'custom' && queryParams.from && queryParams.to) {
+      fromTimestamp = +queryParams.from;
+      toTimestamp = +queryParams.to;
+    } else {
+      const timeFrame = timeFrames.find(tf => tf.id === queryParams.period);
+      const timeRangeParams = timeFrame.timeFrameRangesParams();
+      fromTimestamp = timeRangeParams.from;
+      toTimestamp = timeRangeParams.to;
+    }
+    return { fromTimestamp, toTimestamp };
   }
 }

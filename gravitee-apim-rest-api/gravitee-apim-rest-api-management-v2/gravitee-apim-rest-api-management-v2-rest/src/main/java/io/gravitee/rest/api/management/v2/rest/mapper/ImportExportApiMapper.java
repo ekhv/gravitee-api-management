@@ -17,10 +17,12 @@ package io.gravitee.rest.api.management.v2.rest.mapper;
 
 import static io.gravitee.apim.core.utils.CollectionUtils.stream;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.gravitee.apim.core.api.model.import_definition.ApiDescriptor;
 import io.gravitee.apim.core.api.model.import_definition.ApiExport;
 import io.gravitee.apim.core.api.model.import_definition.GraviteeDefinition;
 import io.gravitee.apim.core.api.model.import_definition.ImportDefinition;
+import io.gravitee.apim.core.membership.model.PrimaryOwnerEntity;
 import io.gravitee.apim.core.plan.model.PlanWithFlows;
 import io.gravitee.definition.jackson.datatype.GraviteeMapper;
 import io.gravitee.definition.model.ResponseTemplate;
@@ -30,7 +32,6 @@ import io.gravitee.definition.model.v4.listener.subscription.SubscriptionListene
 import io.gravitee.definition.model.v4.listener.tcp.TcpListener;
 import io.gravitee.definition.model.v4.nativeapi.NativeListener;
 import io.gravitee.definition.model.v4.nativeapi.kafka.KafkaListener;
-import io.gravitee.rest.api.management.v2.rest.mapper.CorsMapper;
 import io.gravitee.rest.api.management.v2.rest.model.ApiV4;
 import io.gravitee.rest.api.management.v2.rest.model.BaseOriginContext;
 import io.gravitee.rest.api.management.v2.rest.model.EndpointV4;
@@ -41,8 +42,10 @@ import io.gravitee.rest.api.management.v2.rest.model.Metadata;
 import io.gravitee.rest.api.model.ApiMetadataEntity;
 import io.gravitee.rest.api.model.MemberEntity;
 import io.gravitee.rest.api.model.context.OriginContext;
+import io.gravitee.rest.api.service.exceptions.TechnicalManagementException;
 import jakarta.annotation.Nullable;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.SneakyThrows;
@@ -50,6 +53,7 @@ import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
 import org.mapstruct.factory.Mappers;
 
 @Mapper(
@@ -109,10 +113,12 @@ public interface ImportExportApiMapper {
     default BaseOriginContext map(OriginContext src) {
         return switch (src) {
             case null -> null;
-            case OriginContext.Management management -> new io.gravitee.rest.api.management.v2.rest.model.ManagementOriginContext()
-                .origin(BaseOriginContext.OriginEnum.MANAGEMENT);
-            case OriginContext.Kubernetes k8s -> new io.gravitee.rest.api.management.v2.rest.model.KubernetesOriginContext()
-                .origin(BaseOriginContext.OriginEnum.KUBERNETES);
+            case OriginContext.Management management -> new io.gravitee.rest.api.management.v2.rest.model.ManagementOriginContext().origin(
+                BaseOriginContext.OriginEnum.MANAGEMENT
+            );
+            case OriginContext.Kubernetes k8s -> new io.gravitee.rest.api.management.v2.rest.model.KubernetesOriginContext().origin(
+                BaseOriginContext.OriginEnum.KUBERNETES
+            );
             case OriginContext.Integration integration -> new io.gravitee.rest.api.management.v2.rest.model.IntegrationOriginContext()
                 .integrationId(integration.integrationId())
                 .integrationName(integration.integrationName())
@@ -181,6 +187,22 @@ public interface ImportExportApiMapper {
         final ApiExport apiExport = ApiMapper.INSTANCE.toApiExport(exportApiV4.getApi());
         apiExport.setPicture(exportApiV4.getApiPicture());
         apiExport.setBackground(exportApiV4.getApiBackground());
+        Optional.ofNullable(exportApiV4)
+            .map(ExportApiV4::getApi)
+            .map(ApiV4::getPrimaryOwner)
+            .ifPresent(po -> {
+                var type = Optional.ofNullable(po.getType())
+                    .map(t -> PrimaryOwnerEntity.Type.valueOf(t.getValue()))
+                    .orElse(PrimaryOwnerEntity.Type.USER);
+
+                PrimaryOwnerEntity primaryOwnerEntity = PrimaryOwnerEntity.builder()
+                    .id(po.getId())
+                    .email(po.getEmail())
+                    .displayName(po.getDisplayName())
+                    .type(type)
+                    .build();
+                apiExport.setPrimaryOwner(primaryOwnerEntity);
+            });
         return apiExport;
     }
 
@@ -190,6 +212,15 @@ public interface ImportExportApiMapper {
         }
 
         return PlanMapper.INSTANCE.map(exportApiV4.getPlans(), exportApiV4.getApi().getType());
+    }
+
+    @Named("definitionToExportApiV4")
+    default ExportApiV4 definitionToExportApiV4(String exportApiV4) {
+        try {
+            return JSON_MAPPER.readValue(exportApiV4, ExportApiV4.class);
+        } catch (JsonProcessingException e) {
+            throw new TechnicalManagementException("An error occurred while trying to parse exported api during promotion" + e);
+        }
     }
 
     @Mapping(target = "apiId", expression = "java(apiId)")

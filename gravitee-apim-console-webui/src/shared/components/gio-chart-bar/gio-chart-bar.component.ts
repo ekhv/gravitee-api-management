@@ -17,6 +17,9 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { HighchartsChartModule } from 'highcharts-angular';
 import * as Highcharts from 'highcharts';
+import { round } from 'lodash';
+
+import { GioChartAbstractComponent } from '../gio-chart-abstract/gio-chart-abstract.component';
 
 export interface GioChartBarData {
   name: string;
@@ -47,22 +50,14 @@ export const defineBarColors = (code: string | number) => {
   standalone: true,
   imports: [HighchartsChartModule],
 })
-export class GioChartBarComponent implements OnInit {
+export class GioChartBarComponent extends GioChartAbstractComponent implements OnInit {
   @Input()
   public data: GioChartBarData[];
 
   @Input()
   public options: GioChartBarOptions;
 
-  Highcharts: typeof Highcharts = Highcharts;
   chartOptions: Highcharts.Options;
-
-  callbackFunction: Highcharts.ChartCallbackFunction = function (chart) {
-    // Redraw the chart after the component is loaded. to fix the issue of the chart display with bad size
-    setTimeout(() => {
-      chart?.reflow();
-    }, 0);
-  };
 
   ngOnInit() {
     this.chartOptions = {
@@ -115,9 +110,9 @@ export class GioChartBarComponent implements OnInit {
         },
       },
 
-      series: (this.options?.reverseStack ? [...this.data].reverse() : this.data)?.map((item) => ({
+      series: (this.options?.reverseStack ? [...this.data].reverse() : this.data)?.map(item => ({
         name: item.name,
-        data: item.values,
+        data: item.values?.map(value => (value === null ? null : round(value, 2))),
         type: 'column',
         color: item.color || defineBarColors(item.name),
       })),

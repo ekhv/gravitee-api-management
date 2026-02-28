@@ -53,9 +53,18 @@ import {
 } from '../../../entities/management-api-v2';
 import { GioTestingPermissionProvider } from '../../../shared/components/gio-permission/gio-permission.service';
 import { Constants } from '../../../entities/Constants';
+import { Promotion, PromotionTarget } from '../../../entities/promotion';
 
 describe('ApiGeneralInfoComponent', () => {
   const API_ID = 'apiId';
+  const promotionTarget: PromotionTarget = {
+    id: '42',
+    hrids: ['dev'],
+    name: 'dev',
+    description: 'a cockpit environment',
+    organizationId: 'DEFAULT',
+    installationId: 'DEFAULT',
+  };
 
   let fixture: ComponentFixture<ApiGeneralInfoComponent>;
   let loader: HarnessLoader;
@@ -71,6 +80,7 @@ describe('ApiGeneralInfoComponent', () => {
           provide: ActivatedRoute,
           useValue: {
             params: of({ apiId: API_ID }),
+            snapshot: { params: { apiId: 'apiId' } },
           },
         },
         {
@@ -146,6 +156,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
 
       const saveBar = await loader.getHarness(GioSaveBarHarness);
       expect(await saveBar.isVisible()).toBe(false);
@@ -172,14 +183,14 @@ describe('ApiGeneralInfoComponent', () => {
       expect(await categoriesInput.isDisabled()).toEqual(true);
 
       await Promise.all(
-        [/Import/, /Duplicate/, /Promote/].map(async (btnText) => {
+        [/Import/, /Duplicate/, /Promote/].map(async btnText => {
           const button = await loader.getHarness(MatButtonHarness.with({ text: btnText }));
           expect(await button.isDisabled()).toEqual(true);
         }),
       );
 
       await Promise.all(
-        [/Stop the API/, /Unpublish/, /Make Private/, /Deprecate/, /Delete/].map(async (btnText) => {
+        [/Stop the API/, /Unpublish/, /Make Private/, /Deprecate/, /Delete/].map(async btnText => {
           const button = await loader.getHarness(MatButtonHarness.with({ text: btnText }));
           expect(await button.isDisabled()).toEqual(true);
         }),
@@ -208,6 +219,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       expectQualityRulesRequest();
       expectQualityRequest(api.id);
+      expectApiProductsRequest();
 
       const apiQualityInfo = await loader.getHarness(ApiGeneralInfoQualityHarness);
       expect(apiQualityInfo).toBeTruthy();
@@ -234,6 +246,7 @@ describe('ApiGeneralInfoComponent', () => {
 
         // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
         await waitImageCheck();
+        expectApiProductsRequest();
 
         const saveBar = await loader.getHarness(GioSaveBarHarness);
         expect(await saveBar.isVisible()).toBe(false);
@@ -281,7 +294,7 @@ describe('ApiGeneralInfoComponent', () => {
         expectApiGetRequest(api);
 
         // Wait image to be covert to base64
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 10));
 
         const req = httpTestingController.expectOne({ method: 'PUT', url: `${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}` });
         expect(req.request.body.name).toEqual('🦊 API');
@@ -312,6 +325,8 @@ describe('ApiGeneralInfoComponent', () => {
           { id: 'category1', name: 'Category 1', key: 'category1' },
           { id: 'category2', name: 'Category 2', key: 'category2' },
         ]);
+        await waitImageCheck();
+        expectApiProductsRequest();
       });
 
       it('should disable field when origin is kubernetes', async () => {
@@ -333,6 +348,7 @@ describe('ApiGeneralInfoComponent', () => {
 
         // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
         await waitImageCheck();
+        expectApiProductsRequest();
 
         const saveBar = await loader.getHarness(GioSaveBarHarness);
         expect(await saveBar.isVisible()).toBe(false);
@@ -366,14 +382,14 @@ describe('ApiGeneralInfoComponent', () => {
         expect(await emulateV4EngineInput.isDisabled()).toEqual(true);
 
         await Promise.all(
-          [/Import/, /Duplicate/, /Promote/].map(async (btnText) => {
+          [/Import/, /Duplicate/, /Promote/].map(async btnText => {
             const button = await loader.getHarness(MatButtonHarness.with({ text: btnText }));
             expect(await button.isDisabled()).toEqual(true);
           }),
         );
 
         await Promise.all(
-          [/Stop the API/, /Unpublish/, /Make Private/, /Deprecate/, /Delete/].map(async (btnText) => {
+          [/Stop the API/, /Unpublish/, /Make Private/, /Deprecate/, /Delete/].map(async btnText => {
             const button = await loader.getHarness(MatButtonHarness.with({ text: btnText }));
             expect(await button.isDisabled()).toEqual(true);
           }),
@@ -389,6 +405,7 @@ describe('ApiGeneralInfoComponent', () => {
 
         // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
         await waitImageCheck();
+        expectApiProductsRequest();
 
         const button = await loader.getHarness(MatButtonHarness.with({ text: /Export/ }));
         await button.click();
@@ -396,7 +413,8 @@ describe('ApiGeneralInfoComponent', () => {
         await waitImageCheck();
         const confirmDialog = await rootLoader.getHarness(MatDialogHarness.with({ selector: '#exportApiDialog' }));
 
-        const groupCheckbox = await confirmDialog.getHarness(MatCheckboxHarness.with({ selector: '[ng-reflect-name="groups"]' }));
+        const checkboxes = await confirmDialog.getAllHarnesses(MatCheckboxHarness);
+        const groupCheckbox = checkboxes[0];
         await groupCheckbox.uncheck();
 
         const confirmButton = await confirmDialog.getHarness(MatButtonHarness.with({ text: 'Export' }));
@@ -414,6 +432,7 @@ describe('ApiGeneralInfoComponent', () => {
 
         // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
         await waitImageCheck();
+        expectApiProductsRequest();
 
         const button = await loader.getHarness(MatButtonHarness.with({ text: /Duplicate/ }));
         await button.click();
@@ -445,6 +464,7 @@ describe('ApiGeneralInfoComponent', () => {
 
         // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
         await waitImageCheck();
+        expectApiProductsRequest();
         fixture.detectChanges();
 
         await expectQualityRulesRequest();
@@ -461,6 +481,7 @@ describe('ApiGeneralInfoComponent', () => {
 
         // Wait image to be loaded
         await waitImageCheck();
+        expectApiProductsRequest();
 
         const migrateBtn = await loader.getHarness(MatButtonHarness.with({ selector: '[data-testid="api_info_migrate_menu"]' }));
         expect(migrateBtn).toBeTruthy();
@@ -471,6 +492,7 @@ describe('ApiGeneralInfoComponent', () => {
         expectApiGetRequest(api);
         expectCategoriesGetRequest();
         await waitImageCheck();
+        expectApiProductsRequest();
 
         // Click migrate
         const migrateBtn = await loader.getHarness(MatButtonHarness.with({ selector: '[data-testid="api_info_migrate_menu"]' }));
@@ -509,6 +531,8 @@ describe('ApiGeneralInfoComponent', () => {
         // After migration success, component reloads API and categories
         expectApiGetRequest(api);
         expectCategoriesGetRequest();
+        await waitImageCheck();
+        expectApiProductsRequest();
       });
 
       it('should open migration dialog and perform forced migration on CAN_BE_FORCED', async () => {
@@ -516,6 +540,7 @@ describe('ApiGeneralInfoComponent', () => {
         expectApiGetRequest(api);
         expectCategoriesGetRequest();
         await waitImageCheck();
+        expectApiProductsRequest();
 
         const migrateBtn = await loader.getHarness(MatButtonHarness.with({ selector: '[data-testid="api_info_migrate_menu"]' }));
         await migrateBtn.click();
@@ -554,6 +579,8 @@ describe('ApiGeneralInfoComponent', () => {
         // After migration success, component reloads API and categories
         expectApiGetRequest(api);
         expectCategoriesGetRequest();
+        await waitImageCheck();
+        expectApiProductsRequest();
       });
 
       it('should show IMPOSSIBLE state and not allow migration', async () => {
@@ -561,6 +588,7 @@ describe('ApiGeneralInfoComponent', () => {
         expectApiGetRequest(api);
         expectCategoriesGetRequest();
         await waitImageCheck();
+        expectApiProductsRequest();
 
         // Open dialog
         const btn = await loader.getHarness(MatButtonHarness.with({ selector: '[data-testid="api_info_migrate_menu"]' }));
@@ -604,6 +632,170 @@ describe('ApiGeneralInfoComponent', () => {
   describe('API V4', () => {
     beforeEach(() => initComponent());
 
+    it('should display Allow in API Products toggle only for V4 PROXY', async () => {
+      const apiProxy = fakeApiV4({ id: API_ID, type: 'PROXY' });
+      expectApiGetRequest(apiProxy);
+      expectCategoriesGetRequest();
+
+      await waitImageCheck();
+      fixture.detectChanges();
+
+      const productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: [] });
+      fixture.detectChanges();
+
+      let allowInProductToggle = await loader.getHarnessOrNull(
+        MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }),
+      );
+      expect(allowInProductToggle).not.toBeNull();
+
+      const apiNative = fakeApiV4({ id: API_ID, type: 'NATIVE' });
+      fixture.componentInstance['refresh$']?.next?.();
+      expectApiGetRequest(apiNative);
+      expectCategoriesGetRequest();
+      await waitImageCheck();
+      expectApiProductsRequest();
+      fixture.detectChanges();
+
+      allowInProductToggle = await loader.getHarnessOrNull(
+        MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }),
+      );
+      expect(allowInProductToggle).toBeNull();
+    });
+
+    it('should set allowedInApiProducts default value from API or false when undefined', async () => {
+      // Case true
+      let api = fakeApiV4({ id: API_ID, type: 'PROXY', allowedInApiProducts: true });
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+      await waitImageCheck();
+      fixture.detectChanges();
+      let productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: [] });
+      fixture.detectChanges();
+      let toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isChecked()).toBe(true);
+
+      // Case false
+      api = fakeApiV4({ id: API_ID, type: 'PROXY', allowedInApiProducts: false });
+      fixture.componentInstance['refresh$']?.next?.();
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+      await waitImageCheck();
+      fixture.detectChanges();
+      productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: [] });
+      fixture.detectChanges();
+      toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isChecked()).toBe(false);
+
+      // Case undefined -> default false
+      api = fakeApiV4({ id: API_ID, type: 'PROXY' });
+      delete (api as any).allowedInApiProducts;
+      fixture.componentInstance['refresh$']?.next?.();
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+      await waitImageCheck();
+      fixture.detectChanges();
+      productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: [] });
+      fixture.detectChanges();
+      toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isChecked()).toBe(false);
+    });
+
+    it('should disable allowedInApiProducts toggle when API is used in products', async () => {
+      const api = fakeApiV4({ id: API_ID, type: 'PROXY' });
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+
+      await waitImageCheck();
+      fixture.detectChanges();
+
+      // Simulate API is used in products (non-empty data)
+      const productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: [{ id: 'apip1' }] });
+      fixture.detectChanges();
+
+      const toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isDisabled()).toBe(true);
+    });
+
+    it('should keep allowedInApiProducts enabled when api-products call fails', async () => {
+      const api = fakeApiV4({ id: API_ID, type: 'PROXY', allowedInApiProducts: false });
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+
+      await waitImageCheck();
+      fixture.detectChanges();
+
+      const productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush(
+        { message: 'error' },
+        {
+          status: 500,
+          statusText: 'Server Error',
+        },
+      );
+      fixture.detectChanges();
+
+      const toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isDisabled()).toBe(false);
+    });
+
+    it('should disable allowedInApiProducts toggle when isReadOnly (e.g. kubernetes origin)', async () => {
+      const api = fakeApiV4({
+        id: API_ID,
+        type: 'PROXY',
+        originContext: { origin: 'KUBERNETES' },
+      });
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+
+      await waitImageCheck();
+      fixture.detectChanges();
+
+      const productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: [] });
+      fixture.detectChanges();
+
+      const toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isDisabled()).toBe(true);
+    });
+
+    it('should enable allowedInApiProducts when api-products returns null or empty data', async () => {
+      const api = fakeApiV4({ id: API_ID, type: 'PROXY', allowedInApiProducts: false });
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+
+      await waitImageCheck();
+      fixture.detectChanges();
+
+      const productsReq = httpTestingController.expectOne(
+        req => req.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}/api-products`) && req.method === 'GET',
+      );
+      productsReq.flush({ data: null });
+      fixture.detectChanges();
+
+      const toggle = await loader.getHarness(MatSlideToggleHarness.with({ selector: '[formControlName="allowedInApiProducts"]' }));
+      expect(await toggle.isDisabled()).toBe(false);
+      expect(await toggle.isChecked()).toBe(false);
+    });
+
     it('should edit api details', async () => {
       const api = fakeApiV4({
         id: API_ID,
@@ -620,6 +812,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
 
       const saveBar = await loader.getHarness(GioSaveBarHarness);
       expect(await saveBar.isVisible()).toBe(false);
@@ -666,7 +859,7 @@ describe('ApiGeneralInfoComponent', () => {
       expectApiVerifyDeployment(api, true);
 
       // Wait image to be covert to base64
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       const req = httpTestingController.expectOne({ method: 'PUT', url: `${CONSTANTS_TESTING.env.v2BaseURL}/apis/${API_ID}` });
       expect(req.request.body.name).toEqual('🦊 API');
@@ -696,6 +889,8 @@ describe('ApiGeneralInfoComponent', () => {
         { id: 'category1', name: 'Category 1', key: 'category1' },
         { id: 'category2', name: 'Category 2', key: 'category2' },
       ]);
+      await waitImageCheck();
+      expectApiProductsRequest();
     });
 
     it('should disable field when origin is kubernetes', async () => {
@@ -717,6 +912,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
 
       const saveBar = await loader.getHarness(GioSaveBarHarness);
       expect(await saveBar.isVisible()).toBe(false);
@@ -745,14 +941,14 @@ describe('ApiGeneralInfoComponent', () => {
       expectApiVerifyDeployment(api, true);
 
       await Promise.all(
-        [/Import/, /Duplicate/, /Promote/].map(async (btnText) => {
+        [/Import/, /Duplicate/, /Promote/].map(async btnText => {
           const button = await loader.getHarness(MatButtonHarness.with({ text: btnText }));
           expect(await button.isDisabled()).toEqual(true);
         }),
       );
 
       await Promise.all(
-        [/Stop the API/, /Unpublish/, /Make Private/, /Deprecate/, /Delete/].map(async (btnText) => {
+        [/Stop the API/, /Unpublish/, /Make Private/, /Deprecate/, /Delete/].map(async btnText => {
           const button = await loader.getHarness(MatButtonHarness.with({ text: btnText }));
           expect(await button.isDisabled()).toEqual(true);
         }),
@@ -768,6 +964,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
       fixture.detectChanges();
       expectApiVerifyDeployment(api, true);
 
@@ -778,9 +975,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       expect(await apiGeneralInfoExportV4Dialog.getExportOptions()).toEqual(['Groups', 'Members', 'Pages', 'Plans', 'Metadata']);
 
-      await apiGeneralInfoExportV4Dialog.setExportOptions({
-        groups: false,
-      });
+      await apiGeneralInfoExportV4Dialog.setExportOptions(['Members', 'Pages', 'Plans', 'Metadata']);
 
       await apiGeneralInfoExportV4Dialog.export();
 
@@ -796,6 +991,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
       fixture.detectChanges();
       expectApiVerifyDeployment(api, true);
 
@@ -821,6 +1017,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
 
       const button = await loader.getHarness(MatButtonHarness.with({ text: /Duplicate/ }));
       expect(await button.isDisabled()).toBeFalsy();
@@ -857,6 +1054,7 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
 
       const button = await loader.getHarness(MatButtonHarness.with({ text: /Duplicate/ }));
       expect(await button.isDisabled()).toBeFalsy();
@@ -892,12 +1090,47 @@ describe('ApiGeneralInfoComponent', () => {
 
       // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
       await waitImageCheck();
+      expectApiProductsRequest();
       fixture.detectChanges();
 
       expectApiVerifyDeployment(api, true);
 
       const apiQualityInfo = await loader.getHarnessOrNull(ApiGeneralInfoQualityHarness);
       expect(apiQualityInfo).toBeNull();
+    });
+
+    it('should promote V4 API', async () => {
+      const api = fakeApiV4({
+        id: API_ID,
+      });
+      expectApiGetRequest(api);
+      expectCategoriesGetRequest();
+
+      // Wait image to be loaded (fakeAsync is not working with getBase64 🤷‍♂️)
+      await waitImageCheck();
+      expectApiProductsRequest();
+      fixture.detectChanges();
+      expectApiVerifyDeployment(api, true);
+
+      const generalInfoPromote = await loader.getHarness(MatButtonHarness.with({ text: /Promote/ }));
+      expect(await generalInfoPromote.isDisabled()).toBeFalsy();
+      await generalInfoPromote.click();
+
+      expectPromotionTargets();
+      expectExistingPromotion();
+
+      const promotionTarget = await rootLoader.getHarness(
+        MatSelectHarness.with({ selector: '[data-testid="promotion-dialog-target-environment"]' }),
+      );
+      expect(await promotionTarget.getValueText()).toEqual('dev');
+
+      const promoteDialogButton = await rootLoader.getHarness(
+        MatButtonHarness.with({ selector: '[data-testid="promotion-dialog-confirm-button"]' }),
+      );
+      expect(await promoteDialogButton.isDisabled()).toBeFalsy();
+      await promoteDialogButton.click();
+
+      expectPromoteRequest();
     });
   });
 
@@ -908,9 +1141,14 @@ describe('ApiGeneralInfoComponent', () => {
       fixture.componentInstance.isQualityEnabled = true;
       const api = fakeApiFederated({
         id: API_ID,
-      });
+        primaryOwner: { id: 'owner-1', displayName: 'Owner', email: 'owner@gravitee.io' },
+        _links: { pictureUrl: null, backgroundUrl: null },
+      } as any);
       expectApiGetRequest(api);
       expectCategoriesGetRequest();
+      await waitImageCheck();
+      expectApiProductsRequest();
+      expectIntegrationGetRequest();
 
       const apiQualityInfo = await loader.getHarnessOrNull(ApiGeneralInfoQualityHarness);
       expect(apiQualityInfo).toBeNull();
@@ -920,18 +1158,31 @@ describe('ApiGeneralInfoComponent', () => {
       fixture.componentInstance.isQualityEnabled = true;
       const api = fakeApiFederated({
         id: API_ID,
-      });
+        primaryOwner: { id: 'owner-1', displayName: 'Owner', email: 'owner@gravitee.io' },
+        _links: { pictureUrl: null, backgroundUrl: null },
+      } as any);
       expectApiGetRequest(api);
       expectCategoriesGetRequest();
+      await waitImageCheck();
+      expectApiProductsRequest();
+      expectIntegrationGetRequest();
 
       await Promise.all(
-        [/Import/, /Export/, /Duplicate/, /Promote/].map(async (btnText) => {
+        [/Import/, /Export/, /Duplicate/, /Promote/].map(async btnText => {
           const button = await loader.getHarnessOrNull(MatButtonHarness.with({ text: btnText }));
           expect(button).toBeNull();
         }),
       );
     });
   });
+
+  function expectApiProductsRequest(apiId: string = API_ID, data: { data: unknown[] } = { data: [] }) {
+    const req = httpTestingController.expectOne(
+      r => r.url.startsWith(`${CONSTANTS_TESTING.env.v2BaseURL}/apis/${apiId}/api-products`) && r.method === 'GET',
+    );
+    req.flush(data);
+    fixture.detectChanges();
+  }
 
   function expectApiGetRequest(api: Api) {
     httpTestingController.expectOne({ url: `${CONSTANTS_TESTING.env.v2BaseURL}/apis/${api.id}`, method: 'GET' }).flush(api);
@@ -1006,10 +1257,40 @@ describe('ApiGeneralInfoComponent', () => {
     httpTestingController.expectOne({ url: `${CONSTANTS_TESTING.env.baseURL}/configuration/quality-rules`, method: 'GET' });
     fixture.detectChanges();
   }
+
+  function expectIntegrationGetRequest(integrationId = 'integration-id') {
+    httpTestingController
+      .expectOne({ url: `${CONSTANTS_TESTING.env.v2BaseURL}/integrations/${integrationId}`, method: 'GET' })
+      .flush({ id: integrationId, name: 'Test Integration', provider: 'A2A' });
+    fixture.detectChanges();
+  }
+
+  function expectPromotionTargets(targets: PromotionTarget[] = [promotionTarget]) {
+    httpTestingController.expectOne({ url: `${CONSTANTS_TESTING.env.baseURL}/promotion-targets`, method: 'GET' }).flush(targets);
+    fixture.detectChanges();
+  }
+
+  function expectExistingPromotion(promotions: Promotion[] = []) {
+    httpTestingController
+      .expectOne({
+        url: `${CONSTANTS_TESTING.org.baseURL}/promotions/_search?apiId=apiId&statuses=CREATED&statuses=TO_BE_VALIDATED`,
+        method: 'POST',
+      })
+      .flush(promotions);
+    fixture.detectChanges();
+  }
+
+  function expectPromoteRequest(apiId: string = API_ID, target = promotionTarget) {
+    const req = httpTestingController.expectOne({
+      url: `${CONSTANTS_TESTING.env.v2BaseURL}/apis/${apiId}/_promote`,
+      method: 'POST',
+    });
+    expect(req.request.body).toEqual({ targetEnvCockpitId: target.id, targetEnvName: target.name });
+  }
 });
 
 export function newImageFile(fileName: string, type: string): File {
   return new File([''], fileName, { type });
 }
 
-const waitImageCheck = () => new Promise((resolve) => setTimeout(resolve, 1));
+const waitImageCheck = () => new Promise(resolve => setTimeout(resolve, 1));

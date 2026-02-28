@@ -17,6 +17,7 @@ package io.gravitee.repository.elasticsearch.v4.analytics.adapter;
 
 import static io.gravitee.repository.elasticsearch.utils.JsonNodeUtils.asIntOr;
 import static io.gravitee.repository.elasticsearch.utils.JsonNodeUtils.asLongOr;
+import static io.gravitee.repository.elasticsearch.utils.JsonNodeUtils.asMapOrNull;
 import static io.gravitee.repository.elasticsearch.utils.JsonNodeUtils.asTextOrNull;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -39,12 +40,15 @@ public class FindApiMetricsDetailResponseAdapter {
             return Optional.empty();
         }
 
-        return hits.getHits().stream().findFirst().map(h -> buildFromSource(h.getSource()));
+        return hits
+            .getHits()
+            .stream()
+            .findFirst()
+            .map(h -> buildFromSource(h.getSource()));
     }
 
     private static ApiMetricsDetail buildFromSource(JsonNode json) {
-        return ApiMetricsDetail
-            .builder()
+        return ApiMetricsDetail.builder()
             .timestamp(asTextOrNull(json.get("@timestamp")))
             .apiId(asTextOrNull(json.get("api-id")))
             .requestId(asTextOrNull(json.get("request-id")))
@@ -68,6 +72,7 @@ public class FindApiMetricsDetailResponseAdapter {
             .errorComponentName(asTextOrNull(json.get("error-component-name")))
             .errorComponentType(asTextOrNull(json.get("error-component-type")))
             .warnings(buildWarnings(json.get("warnings")))
+            .additionalMetrics(asMapOrNull(json.get("additional-metrics")))
             .build();
     }
 
@@ -75,8 +80,7 @@ public class FindApiMetricsDetailResponseAdapter {
         if (json == null || !json.isArray()) {
             return List.of();
         }
-        return StreamSupport
-            .stream(json.spliterator(), false)
+        return StreamSupport.stream(json.spliterator(), false)
             .map(FindApiMetricsDetailResponseAdapter::buildDiagnostic)
             .filter(Objects::nonNull)
             .toList();
@@ -86,8 +90,7 @@ public class FindApiMetricsDetailResponseAdapter {
         if (json == null) {
             return null;
         }
-        return ConnectionDiagnostic
-            .builder()
+        return ConnectionDiagnostic.builder()
             .componentType(asTextOrNull(json.get("component-type")))
             .componentName(asTextOrNull(json.get("component-name")))
             .key(asTextOrNull(json.get("key")))

@@ -24,6 +24,7 @@ import assertions.MAPIAssertions;
 import fakes.FakeAnalyticsQueryService;
 import fixtures.core.model.ApiFixtures;
 import inmemory.ApiCrudServiceInMemory;
+import inmemory.InstanceQueryServiceInMemory;
 import inmemory.PlanCrudServiceInMemory;
 import io.gravitee.apim.core.analytics.model.HistogramAnalytics;
 import io.gravitee.apim.core.analytics.model.ResponseStatusOvertime;
@@ -54,6 +55,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.AfterEach;
@@ -85,6 +87,9 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
 
     @Inject
     private PlanCrudServiceInMemory planCrudServiceInMemory;
+
+    @Inject
+    private InstanceQueryServiceInMemory instanceQueryServiceInMemory;
 
     @Override
     protected String contextPath() {
@@ -124,13 +129,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = requestsCountTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -140,13 +143,14 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
         @Test
         void should_return_requests_count() {
             apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-            fakeAnalyticsQueryService.requestsCount =
-                RequestsCount.builder().total(11L).countsByEntrypoint(Map.of("http-get", 10L, "sse", 1L)).build();
+            fakeAnalyticsQueryService.requestsCount = RequestsCount.builder()
+                .total(11L)
+                .countsByEntrypoint(Map.of("http-get", 10L, "sse", 1L))
+                .build();
 
             final Response response = requestsCountTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiAnalyticsRequestsCountResponse.class)
                 .satisfies(r -> {
@@ -173,13 +177,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = averageMessagesPerRequestTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -189,17 +191,14 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
         @Test
         void should_return_average_messages_per_request() {
             apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-            fakeAnalyticsQueryService.averageMessagesPerRequest =
-                AverageMessagesPerRequest
-                    .builder()
-                    .globalAverage(55.0)
-                    .averagesByEntrypoint(Map.of("http-get", 10.0, "sse", 100.0))
-                    .build();
+            fakeAnalyticsQueryService.averageMessagesPerRequest = AverageMessagesPerRequest.builder()
+                .globalAverage(55.0)
+                .averagesByEntrypoint(Map.of("http-get", 10.0, "sse", 100.0))
+                .build();
 
             final Response response = averageMessagesPerRequestTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiAnalyticsAverageMessagesPerRequestResponse.class)
                 .satisfies(r -> {
@@ -226,13 +225,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = averageConnectionDurationTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -242,17 +239,14 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
         @Test
         void should_return_average_messages_per_request() {
             apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-            fakeAnalyticsQueryService.averageConnectionDuration =
-                AverageConnectionDuration
-                    .builder()
-                    .globalAverage(55.0)
-                    .averagesByEntrypoint(Map.of("http-get", 10.0, "sse", 100.0))
-                    .build();
+            fakeAnalyticsQueryService.averageConnectionDuration = AverageConnectionDuration.builder()
+                .globalAverage(55.0)
+                .averagesByEntrypoint(Map.of("http-get", 10.0, "sse", 100.0))
+                .build();
 
             final Response response = averageConnectionDurationTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiAnalyticsAverageConnectionDurationResponse.class)
                 .satisfies(r -> {
@@ -279,13 +273,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = statusCodesByEntrypointTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -297,16 +289,13 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             var FROM = 1728981738L;
             var TO = 1729068138L;
             apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-            fakeAnalyticsQueryService.responseStatusRanges =
-                ResponseStatusRanges
-                    .builder()
-                    .statusRangesCountByEntrypoint(Map.of("http-get", Map.of("100.0-200.0", 1L), "http-post", Map.of("100.0-200.0", 1L)))
-                    .build();
+            fakeAnalyticsQueryService.responseStatusRanges = ResponseStatusRanges.builder()
+                .statusRangesCountByEntrypoint(Map.of("http-get", Map.of("100.0-200.0", 1L), "http-post", Map.of("100.0-200.0", 1L)))
+                .build();
 
             final Response response = statusCodesByEntrypointTarget.queryParam("from", FROM).queryParam("to", TO).request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiAnalyticsResponseStatusRangesResponse.class)
                 .extracting(ApiAnalyticsResponseStatusRangesResponse::getRangesByEntrypoint)
@@ -335,13 +324,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = responseTimeOverTimeTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -358,8 +345,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
 
             final Response response = responseTimeOverTimeTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiAnalyticsOverPeriodResponse.class)
                 .extracting(ApiAnalyticsOverPeriodResponse::getData)
@@ -385,13 +371,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = statusCodesOvertimeTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -407,13 +391,14 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             );
             var expectedData = Map.of("200", List.of(0L, 0L, 0L, 2L, 2L, 0L, 1L, 0L, 0L));
             apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-            fakeAnalyticsQueryService.responseStatusOvertime =
-                ResponseStatusOvertime.builder().timeRange(expectedTimeRange).data(expectedData).build();
+            fakeAnalyticsQueryService.responseStatusOvertime = ResponseStatusOvertime.builder()
+                .timeRange(expectedTimeRange)
+                .data(expectedData)
+                .build();
 
             final Response response = statusCodesOvertimeTarget.request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiAnalyticsResponseStatusOvertimeResponse.class)
                 .isNotNull()
@@ -471,8 +456,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
@@ -502,7 +486,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     (HistogramAnalytics.Bucket) new HistogramAnalytics.MetricBucket(
                         "avg_gateway-response-time-ms",
                         "gateway-response-time-ms",
-                        List.of(120L, 110L)
+                        List.of(120D, 110D)
                     )
                 );
                 fakeAnalyticsQueryService.histogramAnalytics = new HistogramAnalytics(expectedTimestamp, expectedBuckets);
@@ -516,8 +500,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
@@ -534,7 +517,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                         assertThat(bucket.getBuckets()).hasSize(1);
                         var avgBucket = bucket.getBuckets().getFirst();
                         assertThat(avgBucket.getName()).isEqualTo("avg_gateway-response-time-ms");
-                        assertThat(avgBucket.getData()).containsExactly(120L, 110L);
+                        assertThat(avgBucket.getData()).containsExactly(120D, 110D);
                     });
             }
 
@@ -555,8 +538,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(400)
                     .asError()
                     .hasHttpStatus(400)
@@ -593,8 +575,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
@@ -628,8 +609,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(400)
                     .asError()
                     .hasHttpStatus(400)
@@ -654,8 +634,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                         .request()
                         .get();
 
-                    MAPIAssertions
-                        .assertThat(response)
+                    MAPIAssertions.assertThat(response)
                         .hasStatus(400)
                         .asError()
                         .hasHttpStatus(400)
@@ -679,8 +658,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(400)
                     .asError()
                     .hasHttpStatus(400)
@@ -697,8 +675,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
 
                 String ranges = "100:199;200:299;300:399;400:499;500:599";
 
-                var expectedAnalytics = io.gravitee.apim.core.analytics.model.GroupByAnalytics
-                    .builder()
+                var expectedAnalytics = io.gravitee.apim.core.analytics.model.GroupByAnalytics.builder()
                     .values(Map.of("100:199", 0L, "200:299", 5L, "300:399", 0L, "400:499", 1L, "500:599", 0L))
                     .order(List.of("100:199", "200:299", "300:399", "400:499", "500:599"))
                     .build();
@@ -727,15 +704,15 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
                         var groupBy = result.getGroupByAnalytics();
                         assertThat(groupBy).isNotNull();
-                        assertThat(groupBy.getAnalyticsType())
-                            .isEqualTo(io.gravitee.rest.api.management.v2.rest.model.AnalyticsType.GROUP_BY);
+                        assertThat(groupBy.getAnalyticsType()).isEqualTo(
+                            io.gravitee.rest.api.management.v2.rest.model.AnalyticsType.GROUP_BY
+                        );
                         assertThat(groupBy.getValues()).hasSize(5);
                         assertThat(groupBy.getValues()).containsEntry("200:299", 5L);
                         assertThat(groupBy.getValues()).containsEntry("400:499", 1L);
@@ -750,8 +727,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                 String ranges = "100:199;200:299;300:399;400:499;500:599";
                 String query = "status:200 AND method:GET";
 
-                var expectedAnalytics = io.gravitee.apim.core.analytics.model.GroupByAnalytics
-                    .builder()
+                var expectedAnalytics = io.gravitee.apim.core.analytics.model.GroupByAnalytics.builder()
                     .values(Map.of("100:199", 0L, "200:299", 5L, "300:399", 0L, "400:499", 1L, "500:599", 0L))
                     .order(List.of("100:199", "200:299", "300:399", "400:499", "500:599"))
                     .build();
@@ -781,15 +757,15 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
                         var groupBy = result.getGroupByAnalytics();
                         assertThat(groupBy).isNotNull();
-                        assertThat(groupBy.getAnalyticsType())
-                            .isEqualTo(io.gravitee.rest.api.management.v2.rest.model.AnalyticsType.GROUP_BY);
+                        assertThat(groupBy.getAnalyticsType()).isEqualTo(
+                            io.gravitee.rest.api.management.v2.rest.model.AnalyticsType.GROUP_BY
+                        );
                         assertThat(groupBy.getValues()).hasSize(5);
                         assertThat(groupBy.getValues()).containsEntry("200:299", 5L);
                         assertThat(groupBy.getValues()).containsEntry("400:499", 1L);
@@ -804,8 +780,16 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             @Test
             void should_return_stats_analytics_response() {
                 apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-                fakeAnalyticsQueryService.statsAnalytics =
-                    new io.gravitee.apim.core.analytics.model.StatsAnalytics(1L, 2L, 3L, 4L, 5, 6L, 7L, 8L);
+                fakeAnalyticsQueryService.statsAnalytics = new io.gravitee.apim.core.analytics.model.StatsAnalytics(
+                    1.1f,
+                    2.2f,
+                    3.3f,
+                    4.4f,
+                    5.5f,
+                    6.6f,
+                    7.7f,
+                    8.8f
+                );
 
                 var response = rootTarget()
                     .queryParam("type", "STATS")
@@ -815,21 +799,20 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
                         var stats = result.getStatsAnalytics();
                         assertThat(stats).isNotNull();
-                        assertThat(stats.getAvg()).isEqualTo(1L);
-                        assertThat(stats.getMin()).isEqualTo(2L);
-                        assertThat(stats.getMax()).isEqualTo(3L);
-                        assertThat(stats.getSum()).isEqualTo(4L);
-                        assertThat(stats.getCount()).isEqualTo(5);
-                        assertThat(stats.getRps()).isEqualTo(6L);
-                        assertThat(stats.getRpm()).isEqualTo(7L);
-                        assertThat(stats.getRph()).isEqualTo(8L);
+                        assertThat(stats.getAvg()).isEqualTo(1.1f);
+                        assertThat(stats.getMin()).isEqualTo(2.2f);
+                        assertThat(stats.getMax()).isEqualTo(3.3f);
+                        assertThat(stats.getSum()).isEqualTo(4.4f);
+                        assertThat(stats.getCount()).isEqualTo(5.5f);
+                        assertThat(stats.getRps()).isEqualTo(6.6f);
+                        assertThat(stats.getRpm()).isEqualTo(7.7f);
+                        assertThat(stats.getRph()).isEqualTo(8.8f);
                     });
             }
 
@@ -846,8 +829,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
@@ -867,8 +849,16 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             @Test
             void should_return_stats_with_query_param() {
                 apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-                fakeAnalyticsQueryService.statsAnalytics =
-                    new io.gravitee.apim.core.analytics.model.StatsAnalytics(1L, 2L, 3L, 4L, 5, 6L, 7L, 8L);
+                fakeAnalyticsQueryService.statsAnalytics = new io.gravitee.apim.core.analytics.model.StatsAnalytics(
+                    1L,
+                    2L,
+                    3L,
+                    4L,
+                    5,
+                    6L,
+                    7L,
+                    8L
+                );
 
                 var response = rootTarget()
                     .queryParam("type", "STATS")
@@ -879,8 +869,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
@@ -904,8 +893,10 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             @Test
             void should_return_requests_count() {
                 apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-                fakeAnalyticsQueryService.requestsCount =
-                    RequestsCount.builder().total(11L).countsByEntrypoint(Map.of("http-get", 10L, "sse", 1L)).build();
+                fakeAnalyticsQueryService.requestsCount = RequestsCount.builder()
+                    .total(11L)
+                    .countsByEntrypoint(Map.of("http-get", 10L, "sse", 1L))
+                    .build();
 
                 final Response response = rootTarget()
                     .queryParam("type", "COUNT")
@@ -915,8 +906,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(OK_200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(r -> {
@@ -927,8 +917,10 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             @Test
             void should_return_count_with_query_param() {
                 apiCrudServiceInMemory.initWith(List.of(ApiFixtures.aMessageApiV4().toBuilder().environmentId(ENVIRONMENT).build()));
-                fakeAnalyticsQueryService.requestsCount =
-                    RequestsCount.builder().total(11L).countsByEntrypoint(Map.of("http-get", 10L, "sse", 1L)).build();
+                fakeAnalyticsQueryService.requestsCount = RequestsCount.builder()
+                    .total(11L)
+                    .countsByEntrypoint(Map.of("http-get", 10L, "sse", 1L))
+                    .build();
 
                 var response = rootTarget()
                     .queryParam("type", "COUNT")
@@ -939,8 +931,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     .request()
                     .get();
 
-                MAPIAssertions
-                    .assertThat(response)
+                MAPIAssertions.assertThat(response)
                     .hasStatus(200)
                     .asEntity(io.gravitee.rest.api.management.v2.rest.model.ApiAnalyticsResponse.class)
                     .satisfies(result -> {
@@ -962,13 +953,11 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     API,
                     RolePermissionAction.READ
                 )
-            )
-                .thenReturn(false);
+            ).thenReturn(false);
 
             final Response response = rootTarget().path("request-id").request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(FORBIDDEN_403)
                 .asError()
                 .hasHttpStatus(FORBIDDEN_403)
@@ -987,8 +976,7 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             var planName = "plan-name";
             planCrudServiceInMemory.initWith(
                 List.of(
-                    fixtures.core.model.PlanFixtures
-                        .aPlanHttpV4()
+                    fixtures.core.model.PlanFixtures.aPlanHttpV4()
                         .toBuilder()
                         .apiId(API)
                         .name(planName)
@@ -999,6 +987,19 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             );
 
             var instanceId = "instance-id";
+            var gatewayHostname = "gateway.example.com";
+            var gatewayIp = "192.168.1.100";
+            instanceQueryServiceInMemory.initWith(
+                List.of(
+                    io.gravitee.apim.core.gateway.model.Instance.builder()
+                        .id(instanceId)
+                        .hostname(gatewayHostname)
+                        .ip(gatewayIp)
+                        .environments(Set.of(ENVIRONMENT))
+                        .build()
+                )
+            );
+
             var timestamp = "2025-08-01T17:29:20.385+02:00";
             var transactionId = "transaction-id";
             var host = "request.host.example.com";
@@ -1011,33 +1012,30 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
             var endpointResponseTime = 100;
             var remoteAddress = "192.168.1.1";
             var endpoint = "https://endpoint.example.com/foo";
-            fakeAnalyticsQueryService.apiMetricsDetail =
-                ApiMetricsDetail
-                    .builder()
-                    .timestamp(timestamp)
-                    .apiId(API)
-                    .requestId(requestId)
-                    .applicationId(applicationId)
-                    .planId(planId)
-                    .transactionId(transactionId)
-                    .host(host)
-                    .uri(uri)
-                    .status(status)
-                    .gateway(instanceId)
-                    .requestContentLength(requestContentLength)
-                    .responseContentLength(responseContentLength)
-                    .gatewayLatency(gatewayLatency)
-                    .gatewayResponseTime(gatewayResponseTime)
-                    .remoteAddress(remoteAddress)
-                    .method(io.gravitee.common.http.HttpMethod.GET)
-                    .endpointResponseTime(endpointResponseTime)
-                    .endpoint(endpoint)
-                    .build();
+            fakeAnalyticsQueryService.apiMetricsDetail = ApiMetricsDetail.builder()
+                .timestamp(timestamp)
+                .apiId(API)
+                .requestId(requestId)
+                .applicationId(applicationId)
+                .planId(planId)
+                .transactionId(transactionId)
+                .host(host)
+                .uri(uri)
+                .status(status)
+                .gateway(instanceId)
+                .requestContentLength(requestContentLength)
+                .responseContentLength(responseContentLength)
+                .gatewayLatency(gatewayLatency)
+                .gatewayResponseTime(gatewayResponseTime)
+                .remoteAddress(remoteAddress)
+                .method(io.gravitee.common.http.HttpMethod.GET)
+                .endpointResponseTime(endpointResponseTime)
+                .endpoint(endpoint)
+                .build();
 
             final Response response = rootTarget().path(requestId).request().get();
 
-            MAPIAssertions
-                .assertThat(response)
+            MAPIAssertions.assertThat(response)
                 .hasStatus(OK_200)
                 .asEntity(ApiMetricsDetailResponse.class)
                 .satisfies(apiMetricsDetail -> {
@@ -1057,6 +1055,8 @@ class ApiAnalyticsResourceTest extends ApiResourceTest {
                     assertThat(apiMetricsDetail.getEndpointResponseTime()).isEqualTo(endpointResponseTime);
                     assertThat(apiMetricsDetail.getEndpoint()).isEqualTo(endpoint);
                     assertThat(apiMetricsDetail.getGateway()).isEqualTo(instanceId);
+                    assertThat(apiMetricsDetail.getGatewayHostname()).isEqualTo(gatewayHostname);
+                    assertThat(apiMetricsDetail.getGatewayIp()).isEqualTo(gatewayIp);
 
                     assertThat(apiMetricsDetail.getApplication())
                         .extracting(BaseApplication::getId, BaseApplication::getName)

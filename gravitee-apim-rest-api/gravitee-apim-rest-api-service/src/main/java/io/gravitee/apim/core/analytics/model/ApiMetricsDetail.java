@@ -20,6 +20,7 @@ import io.gravitee.rest.api.model.BaseApplicationEntity;
 import io.gravitee.rest.api.model.v4.log.connection.ConnectionDiagnosticModel;
 import io.gravitee.rest.api.model.v4.plan.GenericPlanEntity;
 import java.util.List;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
 
@@ -35,6 +36,8 @@ public class ApiMetricsDetail {
     BaseApplicationEntity application;
     GenericPlanEntity plan;
     String gateway;
+    String gatewayHostname;
+    String gatewayIp;
     String uri;
     int status;
     long requestContentLength;
@@ -50,4 +53,5 @@ public class ApiMetricsDetail {
     String errorComponentName;
     String errorComponentType;
     List<ConnectionDiagnosticModel> warnings;
+    Map<String, Object> additionalMetrics;
 }

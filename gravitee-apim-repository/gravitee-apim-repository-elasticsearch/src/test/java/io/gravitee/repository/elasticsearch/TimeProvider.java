@@ -26,15 +26,15 @@ import lombok.Getter;
 @Getter
 public class TimeProvider {
 
-    private static final DateTimeFormatter DATE_TIME_FORMATTER_WITH_DASH = DateTimeFormatter
-        .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSxxx")
-        .withZone(ZoneId.systemDefault());
-    private static final DateTimeFormatter DATE_FORMATTER_WITH_DASH = DateTimeFormatter
-        .ofPattern("yyyy-MM-dd")
-        .withZone(ZoneId.systemDefault());
-    private static final DateTimeFormatter DATE_FORMATTER_WITH_DOT = DateTimeFormatter
-        .ofPattern("yyyy.MM.dd")
-        .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter DATE_TIME_FORMATTER_WITH_DASH = DateTimeFormatter.ofPattern(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"
+    ).withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter DATE_FORMATTER_WITH_DASH = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(
+        ZoneId.systemDefault()
+    );
+    private static final DateTimeFormatter DATE_FORMATTER_WITH_DOT = DateTimeFormatter.ofPattern("yyyy.MM.dd").withZone(
+        ZoneId.systemDefault()
+    );
 
     private final Instant now;
     private final String dateToday;
@@ -60,7 +60,7 @@ public class TimeProvider {
 
     public void setTimestamps(Map<String, Object> data) {
         data.put("now", now.toEpochMilli());
-        IntStream.rangeClosed(1, 10).forEach(i -> data.putIfAbsent("nowMinus" + i, now.minusSeconds(i * 60L).toEpochMilli()));
-        IntStream.rangeClosed(1, 10).forEach(i -> data.putIfAbsent("nowPlus" + i, now.plusSeconds(i * 60L).toEpochMilli()));
+        IntStream.rangeClosed(1, 15).forEach(i -> data.putIfAbsent("nowMinus" + i, now.minusSeconds(i * 60L).toEpochMilli()));
+        IntStream.rangeClosed(1, 15).forEach(i -> data.putIfAbsent("nowPlus" + i, now.plusSeconds(i * 60L).toEpochMilli()));
     }
 }

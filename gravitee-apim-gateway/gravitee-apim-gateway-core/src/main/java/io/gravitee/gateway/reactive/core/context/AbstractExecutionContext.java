@@ -15,9 +15,6 @@
  */
 package io.gravitee.gateway.reactive.core.context;
 
-import static io.gravitee.gateway.reactive.api.context.InternalContextAttributes.ATTR_INTERNAL_EXECUTION_COMPONENT_NAME;
-import static io.gravitee.gateway.reactive.api.context.InternalContextAttributes.ATTR_INTERNAL_EXECUTION_COMPONENT_TYPE;
-
 import io.gravitee.common.util.ListUtils;
 import io.gravitee.el.TemplateContext;
 import io.gravitee.el.TemplateEngine;
@@ -27,11 +24,13 @@ import io.gravitee.gateway.reactive.api.ExecutionWarn;
 import io.gravitee.gateway.reactive.api.context.ExecutionContext;
 import io.gravitee.gateway.reactive.api.context.InternalContextAttributes;
 import io.gravitee.gateway.reactive.api.context.TlsSession;
+import io.gravitee.gateway.reactive.api.context.http.HttpExecutionContext;
 import io.gravitee.gateway.reactive.api.context.http.HttpPlainExecutionContext;
 import io.gravitee.gateway.reactive.api.el.EvaluableMessage;
 import io.gravitee.gateway.reactive.api.el.EvaluableRequest;
 import io.gravitee.gateway.reactive.api.el.EvaluableResponse;
 import io.gravitee.gateway.reactive.api.message.Message;
+import io.gravitee.gateway.reactive.api.policy.base.BasePolicy;
 import io.gravitee.gateway.reactive.core.context.diagnostic.DiagnosticReportHelper;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionException;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionFailureException;
@@ -39,12 +38,13 @@ import io.gravitee.reporter.api.v4.metric.Metrics;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import lombok.Getter;
 import lombok.Setter;
 
 public abstract class AbstractExecutionContext<RQ extends MutableRequest, RS extends MutableResponse>
@@ -61,6 +61,9 @@ public abstract class AbstractExecutionContext<RQ extends MutableRequest, RS ext
     private EvaluableRequest evaluableRequest;
     private EvaluableResponse evaluableResponse;
     private EvaluableExecutionContext evaluableExecutionContext;
+
+    @Getter
+    private Map<BasePolicy, Function<HttpExecutionContext, Completable>> onResponseActions = null;
 
     public AbstractExecutionContext(final RQ request, final RS response) {
         this.request = request;
@@ -91,10 +94,10 @@ public abstract class AbstractExecutionContext<RQ extends MutableRequest, RS ext
     public Completable interruptWith(ExecutionFailure executionFailure) {
         return Completable.defer(() -> {
             internalAttributes.put(InternalContextAttributes.ATTR_INTERNAL_EXECUTION_FAILURE, executionFailure);
+            ComponentScope.ComponentEntry componentEntry = ComponentScope.peek(this);
             metrics.setFailure(
                 DiagnosticReportHelper.fromExecutionFailure(
-                    getInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_TYPE),
-                    getInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_NAME),
+                    componentEntry,
                     metrics.getErrorKey(),
                     metrics.getErrorMessage(),
                     executionFailure
@@ -117,13 +120,8 @@ public abstract class AbstractExecutionContext<RQ extends MutableRequest, RS ext
             setInternalAttribute(InternalContextAttributes.ATTR_INTERNAL_EXECUTION_WARN, warnings);
         }
         warnings.add(warn);
-        metrics.addWarning(
-            DiagnosticReportHelper.fromExecutionWarn(
-                getInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_TYPE),
-                getInternalAttribute(ATTR_INTERNAL_EXECUTION_COMPONENT_NAME),
-                warn
-            )
-        );
+        ComponentScope.ComponentEntry componentEntry = ComponentScope.peek(this);
+        metrics.addWarning(DiagnosticReportHelper.fromExecutionWarn(componentEntry, warn));
     }
 
     @Override
@@ -269,13 +267,25 @@ public abstract class AbstractExecutionContext<RQ extends MutableRequest, RS ext
 
     @Override
     public TemplateEngine getTemplateEngine(Message message) {
-        final TemplateEngine engine = TemplateEngine.templateEngine();
-        prepareTemplateEngine(engine);
-        if (templateVariableProviders != null) {
-            templateVariableProviders.forEach(templateVariableProvider -> templateVariableProvider.provide(engine.getTemplateContext()));
-        }
+        final TemplateEngine engine = TemplateEngine.fromTemplateEngine(this.getTemplateEngine());
         engine.getTemplateContext().setVariable(TEMPLATE_ATTRIBUTE_MESSAGE, new EvaluableMessage(message));
         return engine;
+    }
+
+    @Override
+    public void addActionOnResponse(BasePolicy source, Function<HttpExecutionContext, Completable> function) {
+        if (onResponseActions == null) {
+            onResponseActions = new HashMap<>();
+        }
+
+        onResponseActions.put(source, function);
+    }
+
+    public Function<HttpExecutionContext, Completable> getOnResponseAction(BasePolicy source) {
+        if (onResponseActions == null) {
+            return null;
+        }
+        return onResponseActions.get(source);
     }
 
     private void prepareTemplateEngine(final TemplateEngine templateEngine) {

@@ -17,9 +17,11 @@ package io.gravitee.rest.api.service.impl;
 
 import static java.util.Map.entry;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.jsonpatch.diff.JsonDiff;
+import io.gravitee.apim.core.utils.CollectionUtils;
 import io.gravitee.common.data.domain.MetadataPage;
 import io.gravitee.common.data.domain.Page;
 import io.gravitee.repository.exceptions.TechnicalException;
@@ -43,7 +45,7 @@ import io.gravitee.rest.api.service.exceptions.TechnicalManagementException;
 import io.gravitee.rest.api.service.exceptions.UserNotFoundException;
 import java.util.*;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
@@ -55,14 +57,15 @@ import org.springframework.stereotype.Component;
  * @author GraviteeSource Team
  */
 @Component
-@Slf4j
+@CustomLog
 public class AuditServiceImpl extends AbstractService implements AuditService {
 
     private static final Map<Audit.AuditReferenceType, AuditReferenceType> AUDIT_REFERENCE_TYPE_AUDIT_REFERENCE_TYPE_MAP = Map.ofEntries(
         entry(Audit.AuditReferenceType.ORGANIZATION, AuditReferenceType.ORGANIZATION),
         entry(Audit.AuditReferenceType.ENVIRONMENT, AuditReferenceType.ENVIRONMENT),
         entry(Audit.AuditReferenceType.APPLICATION, AuditReferenceType.APPLICATION),
-        entry(Audit.AuditReferenceType.API, AuditReferenceType.API)
+        entry(Audit.AuditReferenceType.API, AuditReferenceType.API),
+        entry(Audit.AuditReferenceType.API_PRODUCT, AuditReferenceType.API_PRODUCT)
     );
 
     @Lazy
@@ -134,20 +137,17 @@ public class AuditServiceImpl extends AbstractService implements AuditService {
             criteria.references(Audit.AuditReferenceType.ORGANIZATION, null);
         } else if (
             (query.getEnvironmentIds() != null && !query.getEnvironmentIds().isEmpty()) ||
-            query.getReferenceType() != null &&
-            query.getReferenceType().equals(AuditReferenceType.ENVIRONMENT)
+            (query.getReferenceType() != null && query.getReferenceType().equals(AuditReferenceType.ENVIRONMENT))
         ) {
             criteria.references(Audit.AuditReferenceType.ENVIRONMENT, query.getEnvironmentIds());
         } else if (
             (query.getApplicationIds() != null && !query.getApplicationIds().isEmpty()) ||
-            query.getReferenceType() != null &&
-            query.getReferenceType().equals(AuditReferenceType.APPLICATION)
+            (query.getReferenceType() != null && query.getReferenceType().equals(AuditReferenceType.APPLICATION))
         ) {
             criteria.references(Audit.AuditReferenceType.APPLICATION, query.getApplicationIds());
         } else if (
             (query.getApiIds() != null && !query.getApiIds().isEmpty()) ||
-            query.getReferenceType() != null &&
-            query.getReferenceType().equals(AuditReferenceType.API)
+            (query.getReferenceType() != null && query.getReferenceType().equals(AuditReferenceType.API))
         ) {
             criteria.references(Audit.AuditReferenceType.API, query.getApiIds());
         }
@@ -229,7 +229,9 @@ public class AuditServiceImpl extends AbstractService implements AuditService {
                     }
                 }
             } else if (
-                auditEntity.getReferenceId() != null && Audit.AuditReferenceType.API.name().equals(auditEntity.getReferenceType().name())
+                auditEntity.getReferenceId() != null &&
+                (Audit.AuditReferenceType.API.name().equals(auditEntity.getReferenceType().name()) ||
+                    Audit.AuditReferenceType.API_PRODUCT.name().equals(auditEntity.getReferenceType().name()))
             ) {
                 metadataKey = "API:" + auditEntity.getReferenceId() + ":name";
                 if (!metadata.containsKey(metadataKey)) {
@@ -286,134 +288,25 @@ public class AuditServiceImpl extends AbstractService implements AuditService {
     }
 
     @Override
-    public void createApiAuditLog(
-        ExecutionContext executionContext,
-        String apiId,
-        Map<Audit.AuditProperties, String> properties,
-        Audit.AuditEvent event,
-        Date createdAt,
-        Object oldValue,
-        Object newValue
-    ) {
-        createAuditLog(executionContext, Audit.AuditReferenceType.API, apiId, properties, event, createdAt, oldValue, newValue);
-    }
-
-    @Override
-    public void createApplicationAuditLog(
-        ExecutionContext executionContext,
-        String applicationId,
-        Map<Audit.AuditProperties, String> properties,
-        Audit.AuditEvent event,
-        Date createdAt,
-        Object oldValue,
-        Object newValue
-    ) {
-        createAuditLog(
-            executionContext,
-            Audit.AuditReferenceType.APPLICATION,
-            applicationId,
-            properties,
-            event,
-            createdAt,
-            oldValue,
-            newValue
-        );
-    }
-
-    @Override
-    public void createAuditLog(
-        ExecutionContext executionContext,
-        Map<Audit.AuditProperties, String> properties,
-        Audit.AuditEvent event,
-        Date createdAt,
-        Object oldValue,
-        Object newValue
-    ) {
-        if (executionContext.hasEnvironmentId()) {
-            createEnvironmentAuditLog(
-                executionContext,
-                executionContext.getEnvironmentId(),
-                properties,
-                event,
-                createdAt,
-                oldValue,
-                newValue
-            );
-        } else {
-            createOrganizationAuditLog(
-                executionContext,
-                executionContext.getOrganizationId(),
-                properties,
-                event,
-                createdAt,
-                oldValue,
-                newValue
-            );
-        }
-    }
-
-    private void createEnvironmentAuditLog(
-        ExecutionContext executionContext,
-        String environmentId,
-        Map<Audit.AuditProperties, String> properties,
-        Audit.AuditEvent event,
-        Date createdAt,
-        Object oldValue,
-        Object newValue
-    ) {
-        createAuditLog(
-            executionContext,
-            Audit.AuditReferenceType.ENVIRONMENT,
-            environmentId,
-            properties,
-            event,
-            createdAt,
-            oldValue,
-            newValue
-        );
-    }
-
-    @Override
-    public void createOrganizationAuditLog(
-        ExecutionContext executionContext,
-        final String organizationId,
-        Map<Audit.AuditProperties, String> properties,
-        Audit.AuditEvent event,
-        Date createdAt,
-        Object oldValue,
-        Object newValue
-    ) {
-        createAuditLog(
-            executionContext,
-            Audit.AuditReferenceType.ORGANIZATION,
-            organizationId,
-            properties,
-            event,
-            createdAt,
-            oldValue,
-            newValue
-        );
-    }
-
     @Async
-    @Override
-    public void createAuditLog(
-        ExecutionContext executionContext,
-        Audit.AuditReferenceType referenceType,
-        String referenceId,
-        Map<Audit.AuditProperties, String> properties,
-        Audit.AuditEvent event,
-        Date createdAt,
-        Object oldValue,
-        Object newValue
-    ) {
+    public void createAuditLog(ExecutionContext executionContext, AuditLogData auditLogData) {
+        if (auditLogData.getReferenceType() == null) {
+            if (executionContext.hasEnvironmentId()) {
+                auditLogData.setReferenceType(Audit.AuditReferenceType.ENVIRONMENT);
+                auditLogData.setReferenceId(executionContext.getEnvironmentId());
+            } else {
+                auditLogData.setReferenceType(Audit.AuditReferenceType.ORGANIZATION);
+                auditLogData.setReferenceId(executionContext.getOrganizationId());
+            }
+        }
+
         Audit audit = new Audit();
         audit.setId(UuidString.generateRandom());
         audit.setOrganizationId(executionContext.getOrganizationId());
-        if (executionContext.hasEnvironmentId() && !referenceType.equals(Audit.AuditReferenceType.ORGANIZATION)) {
+        if (executionContext.hasEnvironmentId() && !auditLogData.getReferenceType().equals(Audit.AuditReferenceType.ORGANIZATION)) {
             audit.setEnvironmentId(executionContext.getEnvironmentId());
         }
-        audit.setCreatedAt(createdAt == null ? new Date() : createdAt);
+        audit.setCreatedAt(auditLogData.getCreatedAt() == null ? new Date() : auditLogData.getCreatedAt());
 
         final UserDetails authenticatedUser = getAuthenticatedUser();
         final String user;
@@ -428,29 +321,46 @@ public class AuditServiceImpl extends AbstractService implements AuditService {
         }
         audit.setUser(user);
 
-        if (properties != null) {
-            Map<String, String> stringStringMap = new HashMap<>(properties.size());
-            properties.forEach((auditProperties, s) -> stringStringMap.put(auditProperties.name(), s));
+        if (auditLogData.getProperties() != null) {
+            Map<String, String> stringStringMap = new HashMap<>(auditLogData.getProperties().size());
+            auditLogData.getProperties().forEach((auditProperties, s) -> stringStringMap.put(auditProperties.name(), s));
             audit.setProperties(stringStringMap);
         }
 
-        audit.setReferenceType(referenceType);
-        audit.setReferenceId(referenceId);
-        audit.setEvent(event.name());
+        audit.setReferenceType(auditLogData.getReferenceType());
+        audit.setReferenceId(auditLogData.getReferenceId());
+        audit.setEvent(auditLogData.getEvent().name());
 
-        ObjectNode oldNode = oldValue == null
+        ObjectNode oldNode = auditLogData.getOldValue() == null
             ? mapper.createObjectNode()
-            : mapper.convertValue(oldValue, ObjectNode.class).remove(Arrays.asList("updatedAt", "createdAt"));
-        ObjectNode newNode = newValue == null
+            : mapper.convertValue(auditLogData.getOldValue(), ObjectNode.class).remove(Arrays.asList("updatedAt", "createdAt"));
+        ObjectNode newNode = auditLogData.getNewValue() == null
             ? mapper.createObjectNode()
-            : mapper.convertValue(newValue, ObjectNode.class).remove(Arrays.asList("updatedAt", "createdAt"));
+            : mapper.convertValue(auditLogData.getNewValue(), ObjectNode.class).remove(Arrays.asList("updatedAt", "createdAt"));
 
-        audit.setPatch(JsonDiff.asJson(oldNode, newNode).toString());
+        JsonNode diff = JsonDiff.asJson(oldNode, newNode);
+
+        if (CollectionUtils.isNotEmpty(auditLogData.getPathsToAnonymize())) {
+            anonymizeData(diff, auditLogData.getPathsToAnonymize());
+        }
+
+        audit.setPatch(diff.toString());
 
         try {
             auditRepository.create(audit);
         } catch (TechnicalException e) {
             log.error("Error occurs during the creation of an Audit Log {}.", e);
+        }
+    }
+
+    void anonymizeData(JsonNode diff, List<String> pathsToAnonymize) {
+        Iterator<JsonNode> diffElements = diff.elements();
+        while (diffElements.hasNext()) {
+            JsonNode element = diffElements.next();
+            String path = element.get("path").asText();
+            if (pathsToAnonymize.contains(path) && element.get("value") != null) {
+                ((ObjectNode) element).put("value", "*****");
+            }
         }
     }
 

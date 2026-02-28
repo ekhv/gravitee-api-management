@@ -49,14 +49,14 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 
-@Slf4j
+@CustomLog
 public class ScheduledSubscriptionPreExpirationNotificationService extends AbstractService implements Runnable {
 
     // For debugging purposes you can change the trigger to "0 */1 * * * *" and the cronPeriodInMs to 60 * 1000
@@ -133,8 +133,10 @@ public class ScheduledSubscriptionPreExpirationNotificationService extends Abstr
         apiKeyExpirationsToNotify
             .stream()
             // Remove the ones for which an email has already been sent (could happen in case of restart or concurrent processing with multiple instance of APIM)
-            .filter(apiKey ->
-                apiKey.getDaysToExpirationOnLastNotification() == null || apiKey.getDaysToExpirationOnLastNotification() > daysToExpiration
+            .filter(
+                apiKey ->
+                    apiKey.getDaysToExpirationOnLastNotification() == null ||
+                    apiKey.getDaysToExpirationOnLastNotification() > daysToExpiration
             )
             .forEach(apiKey -> notifyApiKeyExpiration(daysToExpiration, apiKey, notifiedSubscriptionIds));
     }
@@ -147,11 +149,18 @@ public class ScheduledSubscriptionPreExpirationNotificationService extends Abstr
             .stream()
             .filter(subscription -> !notifiedSubscriptionIds.contains(subscription.getId()))
             .forEach(subscription -> {
-                GenericApiEntity api = apiSearchService.findGenericById(GraviteeContext.getExecutionContext(), subscription.getApi());
+                GenericApiEntity api = apiSearchService.findGenericById(
+                    GraviteeContext.getExecutionContext(),
+                    subscription.getApi(),
+                    false,
+                    false,
+                    false
+                );
                 GenericPlanEntity plan = planSearchService.findById(GraviteeContext.getExecutionContext(), subscription.getPlan());
 
-                findEmailsToNotify(subscription, application)
-                    .forEach(email -> this.sendEmail(email, daysToExpiration, api, plan, application, apiKey));
+                findEmailsToNotify(subscription, application).forEach(email ->
+                    this.sendEmail(email, daysToExpiration, api, plan, application, apiKey)
+                );
             });
 
         apiKeyService.updateDaysToExpirationOnLastNotification(GraviteeContext.getExecutionContext(), apiKey, daysToExpiration);
@@ -162,9 +171,10 @@ public class ScheduledSubscriptionPreExpirationNotificationService extends Abstr
 
         findSubscriptionExpirationsToNotify(now, daysToExpiration)
             .stream()
-            .filter(subscription -> // Remove the ones for which an email has already been sent (could happen in case of restart or concurrent processing with multiple instance of APIM)
-                subscription.getDaysToExpirationOnLastNotification() == null ||
-                subscription.getDaysToExpirationOnLastNotification() > daysToExpiration
+            .filter(
+                subscription -> // Remove the ones for which an email has already been sent (could happen in case of restart or concurrent processing with multiple instance of APIM)
+                    subscription.getDaysToExpirationOnLastNotification() == null ||
+                    subscription.getDaysToExpirationOnLastNotification() > daysToExpiration
             )
             .forEach(subscription -> notifySubscriptionExpiration(daysToExpiration, subscription));
 
@@ -177,8 +187,9 @@ public class ScheduledSubscriptionPreExpirationNotificationService extends Abstr
 
         ApplicationEntity application = applicationService.findById(GraviteeContext.getExecutionContext(), subscription.getApplication());
 
-        findEmailsToNotify(subscription, application)
-            .forEach(email -> this.sendEmail(email, daysToExpiration, api, plan, application, null));
+        findEmailsToNotify(subscription, application).forEach(email ->
+            this.sendEmail(email, daysToExpiration, api, plan, application, null)
+        );
 
         subscriptionService.updateDaysToExpirationOnLastNotification(subscription.getId(), daysToExpiration);
     }
@@ -190,7 +201,10 @@ public class ScheduledSubscriptionPreExpirationNotificationService extends Abstr
 
         Predicate<Integer> isDayValid = day -> min <= day && day <= max;
 
-        List<Integer> invalidValues = inputDays.stream().filter(day -> !isDayValid.test(day)).collect(Collectors.toList());
+        List<Integer> invalidValues = inputDays
+            .stream()
+            .filter(day -> !isDayValid.test(day))
+            .collect(Collectors.toList());
 
         if (!invalidValues.isEmpty()) {
             log.warn(

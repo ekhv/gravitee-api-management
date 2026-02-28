@@ -17,6 +17,7 @@ package io.gravitee.rest.api.management.v2.rest.resource.cluster;
 
 import io.gravitee.apim.core.audit.model.AuditActor;
 import io.gravitee.apim.core.audit.model.AuditInfo;
+import io.gravitee.apim.core.cluster.domain_service.ClusterConfigurationSchemaService;
 import io.gravitee.apim.core.cluster.use_case.CreateClusterUseCase;
 import io.gravitee.apim.core.cluster.use_case.SearchClusterUseCase;
 import io.gravitee.common.http.MediaType;
@@ -44,9 +45,9 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.ResourceContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
-@Slf4j
+@CustomLog
 public class ClustersResource extends AbstractResource {
 
     @Context
@@ -58,6 +59,9 @@ public class ClustersResource extends AbstractResource {
     @Inject
     private SearchClusterUseCase searchClusterUseCase;
 
+    @Inject
+    private ClusterConfigurationSchemaService clusterConfigurationSchemaService;
+
     @POST
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
@@ -66,13 +70,11 @@ public class ClustersResource extends AbstractResource {
         var executionContext = GraviteeContext.getExecutionContext();
         var userDetails = getAuthenticatedUserDetails();
 
-        AuditInfo audit = AuditInfo
-            .builder()
+        AuditInfo audit = AuditInfo.builder()
             .organizationId(executionContext.getOrganizationId())
             .environmentId(executionContext.getEnvironmentId())
             .actor(
-                AuditActor
-                    .builder()
+                AuditActor.builder()
                     .userId(userDetails.getUsername())
                     .userSource(userDetails.getSource())
                     .userSourceId(userDetails.getSourceId())
@@ -82,8 +84,7 @@ public class ClustersResource extends AbstractResource {
 
         var output = createClusterUseCase.execute(new CreateClusterUseCase.Input(ClusterMapper.INSTANCE.map(createCluster), audit));
 
-        return Response
-            .created(this.getLocationHeader(output.cluster().getId()))
+        return Response.created(this.getLocationHeader(output.cluster().getId()))
             .entity(ClusterMapper.INSTANCE.map(output.cluster()))
             .build();
     }
@@ -119,6 +120,14 @@ public class ClustersResource extends AbstractResource {
                 )
             )
             .links(computePaginationLinks(result.pageResult().getTotalElements(), paginationParam));
+    }
+
+    @GET
+    @Path("schema/configuration")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Permissions({ @Permission(value = RolePermission.ENVIRONMENT_CLUSTER, acls = { RolePermissionAction.READ }) })
+    public Response getConfigurationSchema() {
+        return Response.ok(clusterConfigurationSchemaService.getConfigurationSchema()).build();
     }
 
     @Path("{clusterId}")

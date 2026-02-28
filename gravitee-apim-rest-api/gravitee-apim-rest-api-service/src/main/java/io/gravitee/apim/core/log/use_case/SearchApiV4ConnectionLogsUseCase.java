@@ -34,6 +34,7 @@ import io.gravitee.rest.api.service.exceptions.ApplicationNotFoundException;
 import io.gravitee.rest.api.service.exceptions.PlanNotFoundException;
 import io.gravitee.rest.api.service.exceptions.TechnicalManagementException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @UseCase
@@ -69,14 +70,17 @@ public class SearchApiV4ConnectionLogsUseCase {
 
     private Output mapToResponse(ExecutionContext executionContext, SearchLogsResponse<BaseConnectionLog> logs) {
         var total = logs.total();
-        var data = logs.logs().stream().map(log -> mapToModel(executionContext, log)).toList();
+        var data = logs
+            .logs()
+            .stream()
+            .map(log -> mapToModel(executionContext, log))
+            .toList();
 
         return new Output(total, data);
     }
 
     private ConnectionLogModel mapToModel(ExecutionContext executionContext, BaseConnectionLog connectionLog) {
-        return ConnectionLogModel
-            .builder()
+        return ConnectionLogModel.builder()
             .apiId(connectionLog.getApiId())
             .requestId(connectionLog.getRequestId())
             .timestamp(connectionLog.getTimestamp())
@@ -95,6 +99,7 @@ public class SearchApiV4ConnectionLogsUseCase {
             .errorKey(connectionLog.getErrorKey())
             .message(connectionLog.getMessage())
             .warnings(connectionLog.getWarnings() != null ? connectionLog.getWarnings() : List.of())
+            .additionalMetrics(connectionLog.getAdditionalMetrics() != null ? connectionLog.getAdditionalMetrics() : Map.of())
             .build();
     }
 
@@ -108,6 +113,9 @@ public class SearchApiV4ConnectionLogsUseCase {
     }
 
     private BaseApplicationEntity getApplicationEntity(ExecutionContext executionContext, String applicationId) {
+        if (applicationId == null) {
+            return BaseApplicationEntity.builder().id(UNKNOWN.toLowerCase()).name(UNKNOWN).build();
+        }
         try {
             return applicationCrudService.findById(applicationId, executionContext.getEnvironmentId());
         } catch (ApplicationNotFoundException | TechnicalManagementException e) {
@@ -119,6 +127,7 @@ public class SearchApiV4ConnectionLogsUseCase {
         public Input(String apiId, SearchLogsFilters logsFilters) {
             this(apiId, logsFilters, Optional.empty());
         }
+
         public Input(String apiId, SearchLogsFilters logsFilters, Pageable pageable) {
             this(apiId, logsFilters, Optional.of(pageable));
         }

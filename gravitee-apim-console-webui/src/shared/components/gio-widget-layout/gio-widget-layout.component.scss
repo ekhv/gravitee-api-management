@@ -9,12 +9,17 @@ $cardHeaderBorderColor: map.get(gio.$mat-theme, foreground);
   border: 1px solid $borderColor;
   border-radius: 8px;
   transition: height 0.3s ease-in-out;
+  height: 100%;
 
   &__title {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 16px;
+
+    &__tooltip-icon {
+      color: mat.m2-get-color-from-palette(gio.$mat-smoke-palette, 'darker20');
+    }
   }
 
   &__header {
@@ -34,8 +39,8 @@ $cardHeaderBorderColor: map.get(gio.$mat-theme, foreground);
 }
 
 .icon {
-  color: mat.m2-get-color-from-palette(gio.$mat-primary-palette, default);
-  background: mat.m2-get-color-from-palette(gio.$mat-primary-palette, 'lighter');
+  color: mat.m2-get-color-from-palette(gio.$mat-primary-palette, darker80);
+  background: mat.m2-get-color-from-palette(gio.$mat-smoke-palette, lighter40);
   border-radius: 50%;
   display: flex;
   justify-content: center;
@@ -75,6 +80,18 @@ $cardHeaderBorderColor: map.get(gio.$mat-theme, foreground);
   flex-direction: column;
   word-break: break-word;
   text-align: center;
+
+  &.empty--small {
+    min-height: 180px;
+  }
+
+  &.empty--medium {
+    min-height: 240px;
+  }
+
+  &.empty--large {
+    min-height: 350px;
+  }
 }
 
 // Success state (chart content)

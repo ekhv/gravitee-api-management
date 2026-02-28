@@ -44,13 +44,13 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import javax.inject.Singleton;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-@Slf4j
+@CustomLog
 @Singleton
 @Path("/auth/external")
 public class ExternalAuthenticationResource extends AbstractAuthenticationResource {
@@ -105,24 +105,21 @@ public class ExternalAuthenticationResource extends AbstractAuthenticationResour
                     keyProcessor.setJwkSourceResolver(new RemoteJWKSourceResolver<>(publicKeyResolver));
                 } else {
                     switch (algorithm) {
-                        case RS256, RS384, RS512:
-                            {
-                                keyProcessor = new RSAECKeyProcessor<>(claimsVerifier);
-                                keyProcessor.setJwkSourceResolver(new RSAJWKSourceResolver<>(publicKeyResolver));
-                                break;
-                            }
-                        case HS256, HS384, HS512:
-                            {
-                                keyProcessor = new HMACKeyProcessor<>(claimsVerifier);
-                                keyProcessor.setJwkSourceResolver(new MACJWKSourceResolver<>(publicKeyResolver));
-                                break;
-                            }
-                        case ES256, ES384, ES512:
-                            {
-                                keyProcessor = new RSAECKeyProcessor<>(claimsVerifier);
-                                keyProcessor.setJwkSourceResolver(new ECJWKSourceResolver<>(publicKeyResolver));
-                                break;
-                            }
+                        case RS256, RS384, RS512: {
+                            keyProcessor = new RSAECKeyProcessor<>(claimsVerifier);
+                            keyProcessor.setJwkSourceResolver(new RSAJWKSourceResolver<>(publicKeyResolver));
+                            break;
+                        }
+                        case HS256, HS384, HS512: {
+                            keyProcessor = new HMACKeyProcessor<>(claimsVerifier);
+                            keyProcessor.setJwkSourceResolver(new MACJWKSourceResolver<>(publicKeyResolver));
+                            break;
+                        }
+                        case ES256, ES384, ES512: {
+                            keyProcessor = new RSAECKeyProcessor<>(claimsVerifier);
+                            keyProcessor.setJwkSourceResolver(new ECJWKSourceResolver<>(publicKeyResolver));
+                            break;
+                        }
                     }
                 }
             } catch (Exception e) {

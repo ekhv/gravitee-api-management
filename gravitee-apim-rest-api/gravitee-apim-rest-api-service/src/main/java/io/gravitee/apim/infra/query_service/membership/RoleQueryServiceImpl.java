@@ -29,11 +29,11 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-@Slf4j
+@CustomLog
 @Service
 public class RoleQueryServiceImpl implements RoleQueryService {
 
@@ -107,6 +107,22 @@ public class RoleQueryServiceImpl implements RoleQueryService {
                 .map(RoleAdapter.INSTANCE::toEntity);
         } catch (TechnicalException e) {
             throw new TechnicalDomainException("An error occurs while trying to find integration role", e);
+        }
+    }
+
+    @Override
+    public Optional<Role> findApiProductRole(String name, ReferenceContext referenceContext) {
+        try {
+            return roleRepository
+                .findByScopeAndNameAndReferenceIdAndReferenceType(
+                    RoleScope.API_PRODUCT,
+                    name,
+                    referenceContext.getReferenceId(),
+                    RoleReferenceType.valueOf(referenceContext.getReferenceType().name())
+                )
+                .map(RoleAdapter.INSTANCE::toEntity);
+        } catch (TechnicalException e) {
+            throw new TechnicalDomainException("An error occurs while trying to find api product role", e);
         }
     }
 

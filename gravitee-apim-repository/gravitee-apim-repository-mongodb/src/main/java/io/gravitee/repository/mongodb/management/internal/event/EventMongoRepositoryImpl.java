@@ -33,7 +33,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -48,7 +48,7 @@ import org.springframework.data.mongodb.core.query.Update;
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class EventMongoRepositoryImpl implements EventMongoRepositoryCustom {
 
     public static final String BACKUP_COLLECTION = "events_history";
@@ -167,23 +167,21 @@ public class EventMongoRepositoryImpl implements EventMongoRepositoryCustom {
     }
 
     private static Criteria buildOrganizationsCriteria(EventCriteria criteria) {
-        return new Criteria()
-            .orOperator(
-                Criteria.where(ORGANIZATIONS_FIELD).exists(false),
-                Criteria.where(ORGANIZATIONS_FIELD).isNull(),
-                Criteria.where(ORGANIZATIONS_FIELD).is(Collections.emptyList()),
-                Criteria.where(ORGANIZATIONS_FIELD).in(criteria.getOrganizations())
-            );
+        return new Criteria().orOperator(
+            Criteria.where(ORGANIZATIONS_FIELD).exists(false),
+            Criteria.where(ORGANIZATIONS_FIELD).isNull(),
+            Criteria.where(ORGANIZATIONS_FIELD).is(Collections.emptyList()),
+            Criteria.where(ORGANIZATIONS_FIELD).in(criteria.getOrganizations())
+        );
     }
 
     private static Criteria buildEnvironmentsCriteria(EventCriteria criteria) {
-        return new Criteria()
-            .orOperator(
-                Criteria.where(ENVIRONMENTS_FIELD).exists(false),
-                Criteria.where(ENVIRONMENTS_FIELD).isNull(),
-                Criteria.where(ENVIRONMENTS_FIELD).is(Collections.emptyList()),
-                Criteria.where(ENVIRONMENTS_FIELD).in(criteria.getEnvironments())
-            );
+        return new Criteria().orOperator(
+            Criteria.where(ENVIRONMENTS_FIELD).exists(false),
+            Criteria.where(ENVIRONMENTS_FIELD).isNull(),
+            Criteria.where(ENVIRONMENTS_FIELD).is(Collections.emptyList()),
+            Criteria.where(ENVIRONMENTS_FIELD).in(criteria.getEnvironments())
+        );
     }
 
     @Override
@@ -196,8 +194,7 @@ public class EventMongoRepositoryImpl implements EventMongoRepositoryCustom {
             .stream(query, EventMongo.class)
             .map(event -> {
                 // Determine the structured group based on event type and properties
-                EventType eventType = Arrays
-                    .stream(EventType.values())
+                EventType eventType = Arrays.stream(EventType.values())
                     .filter(e -> e.name().equals(event.getType()))
                     .findFirst()
                     .orElse(null);

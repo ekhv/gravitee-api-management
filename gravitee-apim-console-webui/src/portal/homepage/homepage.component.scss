@@ -13,12 +13,20 @@
   }
 }
 
+.actions {
+  display: flex;
+  gap: 8px;
+
+  &__toggle-publish {
+    width: 100px;
+  }
+}
+
 gmd-editor {
   @include gmd.editor-overrides(
     (
       container-outline-color: mat.m2-get-color-from-palette(gio.$mat-dove-palette, 'darker20'),
     )
   );
-  height: 100%;
-  overflow: hidden;
+  height: calc(100% - 193px); // Height of header
 }

@@ -27,12 +27,12 @@ import io.gravitee.rest.api.service.exceptions.PlanNotFoundException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
+@CustomLog
 public class PlanCrudServiceImpl implements PlanCrudService {
 
     private final PlanRepository planRepository;
@@ -76,13 +76,54 @@ public class PlanCrudServiceImpl implements PlanCrudService {
     }
 
     @Override
-    public Collection<Plan> findByApiId(String apiId) {
+    public void updateCrossIds(List<Plan> plans) {
+        log.debug("Update plans cross IDs : {}", plans);
         try {
-            log.debug("Find a plan by API id : {}", apiId);
-            return stream(planRepository.findByApi(apiId)).map(PlanAdapter.INSTANCE::fromRepository).toList();
-        } catch (TechnicalException ex) {
-            throw new TechnicalDomainException(String.format("An error occurred while trying to find a plan by id: %s", apiId), ex);
+            planRepository.updateCrossIds(plans.stream().map(PlanAdapter.INSTANCE::toRepository).toList());
+        } catch (TechnicalException e) {
+            throw new TechnicalDomainException(String.format("An error occurred while trying to update plans cross IDs %s", plans), e);
         }
+    }
+
+    @Override
+    public Optional<Plan> findByPlanIdAndReferenceIdAndReferenceType(String planId, String referenceId, String referenceType) {
+        try {
+            log.debug("Get plan by id : {}", planId);
+            return planRepository
+                .findByIdAndReferenceIdAndReferenceType(
+                    planId,
+                    referenceId,
+                    io.gravitee.repository.management.model.Plan.PlanReferenceType.valueOf(referenceType)
+                )
+                .map(PlanAdapter.INSTANCE::fromRepository);
+        } catch (TechnicalException ex) {
+            throw new TechnicalDomainException(String.format("An error occurred while trying to get a plan by id: %s", planId), ex);
+        }
+    }
+
+    @Override
+    public Collection<Plan> findByReferenceIdAndReferenceType(String referenceId, String referenceType) {
+        try {
+            log.debug("Find a plan by reference id : {}", referenceId);
+            return stream(
+                planRepository.findByReferenceIdAndReferenceType(
+                    referenceId,
+                    io.gravitee.repository.management.model.Plan.PlanReferenceType.valueOf(referenceType)
+                )
+            )
+                .map(PlanAdapter.INSTANCE::fromRepository)
+                .toList();
+        } catch (TechnicalException ex) {
+            throw new TechnicalDomainException(
+                String.format("An error occurred while trying to find a plan by reference id: %s", referenceId),
+                ex
+            );
+        }
+    }
+
+    @Override
+    public Collection<Plan> findByApiId(String apiId) {
+        return findByReferenceIdAndReferenceType(apiId, io.gravitee.repository.management.model.Plan.PlanReferenceType.API.name());
     }
 
     @Override

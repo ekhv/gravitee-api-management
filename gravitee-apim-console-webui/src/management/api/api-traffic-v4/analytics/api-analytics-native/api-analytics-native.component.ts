@@ -19,9 +19,10 @@ import { GioCardEmptyStateModule, GioLoaderModule } from '@gravitee/ui-particles
 import { MatCardModule } from '@angular/material/card';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map, shareReplay } from 'rxjs/operators';
+import { omit } from 'lodash';
 
 import { timeFrames } from '../../../../../shared/utils/timeFrameRanges';
 import {
@@ -33,14 +34,16 @@ import { ApiAnalyticsWidgetService, ApiAnalyticsWidgetUrlParamsData } from '../a
 import { ApiAnalyticsDashboardWidgetConfig } from '../api-analytics-proxy/api-analytics-proxy.component';
 import { GioChartPieModule } from '../../../../../shared/components/gio-chart-pie/gio-chart-pie.module';
 import { ApiPlanV2Service } from '../../../../../services-ngx/api-plan-v2.service';
-import { AggregationTypes, AggregationFields } from '../../../../../entities/management-api-v2/analytics/analyticsHistogram';
+import { AggregationFields, AggregationTypes } from '../../../../../entities/management-api-v2/analytics/analyticsHistogram';
+import { BaseApplication } from '../../../../../entities/management-api-v2';
+import { ApiV2Service } from '../../../../../services-ngx/api-v2.service';
 
 interface QueryParamsBase {
   from?: string;
   to?: string;
   period?: string;
   plans?: string;
-  applications?: string[];
+  applications?: string;
 }
 
 @Component({
@@ -61,11 +64,13 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
   private readonly apiId: string = this.activatedRoute.snapshot.params.apiId;
   private activatedRouteQueryParams = toSignal(this.activatedRoute.queryParams);
   private planService = inject(ApiPlanV2Service);
+  private apiService = inject(ApiV2Service);
 
   public topRowTransformed$: Observable<ApiAnalyticsWidgetConfig>[];
   public leftColumnTransformed$: Observable<ApiAnalyticsWidgetConfig>[];
   public rightColumnTransformed$: Observable<ApiAnalyticsWidgetConfig>[];
   public bottomRowTransformed$: Observable<ApiAnalyticsWidgetConfig>[];
+  public applications$: Observable<BaseApplication[]> = of([]);
 
   public activeFilters: Signal<ApiAnalyticsNativeFilters> = computed(() => this.mapQueryParamsToFilters(this.activatedRouteQueryParams()));
 
@@ -76,6 +81,7 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
       title: 'Active Connections',
       tooltip: 'Number of active connections from clients and to broker',
       analyticsType: 'HISTOGRAM',
+      filterQueryParams: params => omit(params, ['plans', 'applications']),
       aggregations: [
         {
           type: AggregationTypes.VALUE,
@@ -95,15 +101,16 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
       title: 'Messages Produced',
       tooltip: 'Messages published from clients to gateway and from gateway to broker',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
           type: AggregationTypes.DELTA,
-          field: AggregationFields.DOWNSTREAM_PUBLISH_MESSAGES_TOTAL,
+          field: AggregationFields.DOWNSTREAM_PUBLISH_MESSAGES_COUNT_INCREMENT,
           label: 'From Clients',
         },
         {
           type: AggregationTypes.DELTA,
-          field: AggregationFields.UPSTREAM_PUBLISH_MESSAGES_TOTAL,
+          field: AggregationFields.UPSTREAM_PUBLISH_MESSAGES_COUNT_INCREMENT,
           label: 'To Broker',
         },
       ],
@@ -114,15 +121,16 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
       title: 'Messages Consumed',
       tooltip: 'Messages consumed from broker by gateway and delivered to clients',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
           type: AggregationTypes.DELTA,
-          field: AggregationFields.UPSTREAM_SUBSCRIBE_MESSAGES_TOTAL,
+          field: AggregationFields.UPSTREAM_SUBSCRIBE_MESSAGES_COUNT_INCREMENT,
           label: 'From Broker',
         },
         {
           type: AggregationTypes.DELTA,
-          field: AggregationFields.DOWNSTREAM_SUBSCRIBE_MESSAGES_TOTAL,
+          field: AggregationFields.DOWNSTREAM_SUBSCRIBE_MESSAGES_COUNT_INCREMENT,
           label: 'To Clients',
         },
       ],
@@ -133,40 +141,46 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
     {
       type: 'line',
       apiId: this.apiId,
-      title: 'Message Production Rate',
+      title: 'Message Production Rate (messages/sec)',
       tooltip: 'Messages published from clients to gateway and from gateway to broker over time',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.DOWNSTREAM_PUBLISH_MESSAGES_TOTAL,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.DOWNSTREAM_PUBLISH_MESSAGES_COUNT_INCREMENT,
           label: 'From Clients',
         },
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.UPSTREAM_PUBLISH_MESSAGES_TOTAL,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.UPSTREAM_PUBLISH_MESSAGES_COUNT_INCREMENT,
           label: 'To Broker',
         },
       ],
+      minHeight: 'large',
+      lineEnableMarkers: true,
     },
     {
       type: 'line',
       apiId: this.apiId,
-      title: 'Data Production Rate',
+      title: 'Data Production Rate (bytes/sec)',
       tooltip: 'Data volume published from clients to gateway and from gateway to broker over time',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.DOWNSTREAM_PUBLISH_MESSAGE_BYTES,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.DOWNSTREAM_PUBLISH_MESSAGE_BYTES_INCREMENT,
           label: 'From Clients',
         },
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.UPSTREAM_PUBLISH_MESSAGE_BYTES,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.UPSTREAM_PUBLISH_MESSAGE_BYTES_INCREMENT,
           label: 'To Broker',
         },
       ],
+      minHeight: 'large',
+      lineEnableMarkers: true,
     },
   ];
 
@@ -174,40 +188,46 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
     {
       type: 'line',
       apiId: this.apiId,
-      title: 'Message Consumption Rate',
+      title: 'Message Consumption Rate (messages/sec)',
       tooltip: 'Messages consumed from broker by gateway and delivered to clients over time',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.UPSTREAM_SUBSCRIBE_MESSAGES_TOTAL,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.UPSTREAM_SUBSCRIBE_MESSAGES_COUNT_INCREMENT,
           label: 'From Broker',
         },
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.DOWNSTREAM_SUBSCRIBE_MESSAGES_TOTAL,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.DOWNSTREAM_SUBSCRIBE_MESSAGES_COUNT_INCREMENT,
           label: 'To Clients',
         },
       ],
+      minHeight: 'large',
+      lineEnableMarkers: true,
     },
     {
       type: 'line',
       apiId: this.apiId,
-      title: 'Data Consumption Rate',
+      title: 'Data Consumption Rate (bytes/sec)',
       tooltip: 'Data volume consumed from broker by gateway and delivered to clients over time',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.UPSTREAM_SUBSCRIBE_MESSAGE_BYTES,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.UPSTREAM_SUBSCRIBE_MESSAGE_BYTES_INCREMENT,
           label: 'From Broker',
         },
         {
-          type: AggregationTypes.TREND,
-          field: AggregationFields.DOWNSTREAM_SUBSCRIBE_MESSAGE_BYTES,
+          type: AggregationTypes.TREND_RATE,
+          field: AggregationFields.DOWNSTREAM_SUBSCRIBE_MESSAGE_BYTES_INCREMENT,
           label: 'To Clients',
         },
       ],
+      minHeight: 'large',
+      lineEnableMarkers: true,
     },
   ];
 
@@ -218,35 +238,37 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
       title: 'Authentication Success vs. Failure',
       tooltip: 'Total authentication successes and failures over time (combined downstream + upstream)',
       analyticsType: 'HISTOGRAM',
+      mapQueryParams: mapQueryParams,
       aggregations: [
         {
           type: AggregationTypes.TREND,
-          field: AggregationFields.DOWNSTREAM_AUTHENTICATION_SUCCESSES_TOTAL,
+          field: AggregationFields.DOWNSTREAM_AUTHENTICATION_SUCCESSES_COUNT_INCREMENT,
           label: 'Downstream Success',
         },
         {
           type: AggregationTypes.TREND,
-          field: AggregationFields.DOWNSTREAM_AUTHENTICATION_FAILURES_TOTAL,
+          field: AggregationFields.DOWNSTREAM_AUTHENTICATION_FAILURES_COUNT_INCREMENT,
           label: 'Downstream Failure',
         },
         {
           type: AggregationTypes.TREND,
-          field: AggregationFields.UPSTREAM_AUTHENTICATION_SUCCESSES_TOTAL,
+          field: AggregationFields.UPSTREAM_AUTHENTICATION_SUCCESSES_COUNT_INCREMENT,
           label: 'Upstream Success',
         },
         {
           type: AggregationTypes.TREND,
-          field: AggregationFields.UPSTREAM_AUTHENTICATION_FAILURES_TOTAL,
+          field: AggregationFields.UPSTREAM_AUTHENTICATION_FAILURES_COUNT_INCREMENT,
           label: 'Upstream Failure',
         },
       ],
+      minHeight: 'large',
     },
   ];
 
   apiPlans$ = this.planService
-    .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED', 'DEPRECATED', 'CLOSED'], undefined, 1, 9999)
+    .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED', 'DEPRECATED', 'CLOSED'], undefined, undefined, 1, 9999)
     .pipe(
-      map((plans) => plans.data),
+      map(plans => plans.data),
       shareReplay(1),
     );
 
@@ -261,19 +283,21 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.topRowTransformed$ = this.topRowWidgets.map((widgetConfig) => {
+    this.applications$ = this.apiService.getSubscribers(this.apiId, null, 1, 200).pipe(map(response => response?.data ?? []));
+
+    this.topRowTransformed$ = this.topRowWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
 
-    this.leftColumnTransformed$ = this.leftColumnWidgets.map((widgetConfig) => {
+    this.leftColumnTransformed$ = this.leftColumnWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
 
-    this.rightColumnTransformed$ = this.rightColumnWidgets.map((widgetConfig) => {
+    this.rightColumnTransformed$ = this.rightColumnWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
 
-    this.bottomRowTransformed$ = this.bottomRowWidgets.map((widgetConfig) => {
+    this.bottomRowTransformed$ = this.bottomRowWidgets.map(widgetConfig => {
       return this.apiAnalyticsWidgetService.getApiAnalyticsWidgetConfig$(widgetConfig);
     });
   }
@@ -312,6 +336,9 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
     if (filters.plans?.length) {
       params.plans = filters.plans.join(',');
     }
+    if (filters.applications?.length) {
+      params.applications = filters.applications.join(',');
+    }
 
     return params as QueryParamsBase;
   }
@@ -332,7 +359,7 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
       };
     }
 
-    const timeFrame = timeFrames.find((tf) => tf.id === normalizedPeriod) || timeFrames.find((tf) => tf.id === '1d');
+    const timeFrame = timeFrames.find(tf => tf.id === normalizedPeriod) || timeFrames.find(tf => tf.id === '1d');
     return {
       timeRangeParams: timeFrame.timeFrameRangesParams(),
       httpStatuses: [],
@@ -381,3 +408,12 @@ export class ApiAnalyticsNativeComponent implements OnInit, OnDestroy {
     return Math.floor(range / nbValuesByBucket);
   }
 }
+
+const mapQueryParams: ApiAnalyticsDashboardWidgetConfig['mapQueryParams'] = params => {
+  const plansTerm = params.plans?.map(p => `plan-id:${p}`).join(',');
+  const appsTerm = params.applications?.map(a => `app-id:${a}`).join(',');
+
+  return {
+    terms: [plansTerm, appsTerm].filter(t => t).join(','),
+  };
+};

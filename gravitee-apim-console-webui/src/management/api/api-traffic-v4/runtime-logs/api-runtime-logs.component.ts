@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, Signal } from '@angular/core';
 import { map, shareReplay, skip, switchMap, tap } from 'rxjs/operators';
 import { forkJoin, of, ReplaySubject } from 'rxjs';
 import moment from 'moment';
@@ -25,7 +25,7 @@ import { QuickFiltersStoreService } from './services';
 import { LogFiltersInitialValues } from './models';
 
 import { ApiLogsV2Service } from '../../../../services-ngx/api-logs-v2.service';
-import { ApiLogsParam, ApiLogsResponse, ApiV4 } from '../../../../entities/management-api-v2';
+import { ApiLogsParam, ApiLogsResponse, ApiType, ApiV4 } from '../../../../entities/management-api-v2';
 import { ApplicationService } from '../../../../services-ngx/application.service';
 import { ApiPlanV2Service } from '../../../../services-ngx/api-plan-v2.service';
 import { ConnectorPluginsV2Service } from '../../../../services-ngx/connector-plugins-v2.service';
@@ -55,19 +55,19 @@ export class ApiRuntimeLogsComponent implements OnInit {
   );
   apiLogsSubject$ = new ReplaySubject<ApiLogsResponse>(1);
   apiPlans$ = this.planService
-    .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED', 'DEPRECATED', 'CLOSED'], undefined, 1, 9999)
+    .list(this.activatedRoute.snapshot.params.apiId, undefined, ['PUBLISHED', 'DEPRECATED', 'CLOSED'], undefined, undefined, 1, 9999)
     .pipe(
-      map((plans) => plans.data),
+      map(plans => plans.data),
       shareReplay(1),
     );
   entrypoints$ = this.connectorPluginsService.listEntrypointPlugins().pipe(
-    map((plugins) => {
-      return plugins.map((plugin) => {
+    map(plugins => {
+      return plugins.map(plugin => {
         return { id: plugin.id, name: plugin.name };
       });
     }),
   );
-  isMessageApi = toSignal(this.api$.pipe(map((api: ApiV4) => !!api && api.type === 'MESSAGE')));
+  apiType: Signal<ApiType> = toSignal(this.api$.pipe(map((api: ApiV4) => api.type)));
   initialValues: LogFiltersInitialValues;
   loading = true;
 
@@ -105,7 +105,7 @@ export class ApiRuntimeLogsComponent implements OnInit {
     this.apiLogsService
       .searchConnectionLogs(this.activatedRoute.snapshot.params.apiId, queryParam)
       .pipe(
-        tap((apiLogsResponse) => {
+        tap(apiLogsResponse => {
           this.apiLogsSubject$.next(apiLogsResponse);
           this.loading = false;
           this.router.navigate(['.'], {
@@ -137,24 +137,27 @@ export class ApiRuntimeLogsComponent implements OnInit {
         map(([applications, plans]) => {
           return {
             plans:
-              planIds?.map((id) => {
-                const plan = plans.find((p) => p.id === id);
+              planIds?.map(id => {
+                const plan = plans.find(p => p.id === id);
                 return { value: id, label: plan.name };
               }) ?? undefined,
             applications:
-              applicationIds?.map((id) => {
-                const application = applications.data.find((app) => app.id === id);
+              applicationIds?.map(id => {
+                const application = applications.data.find(app => app.id === id);
                 return { value: id, label: `${application.name} ( ${application.owner?.displayName} )` };
               }) ?? undefined,
-            from: this.activatedRoute.snapshot.queryParams?.from ? moment(this.activatedRoute.snapshot.queryParams.from) : undefined,
-            to: this.activatedRoute.snapshot.queryParams?.to ? moment(this.activatedRoute.snapshot.queryParams.to) : undefined,
+            from: this.activatedRoute.snapshot.queryParams?.from
+              ? moment(Number(this.activatedRoute.snapshot.queryParams.from))
+              : undefined,
+            to: this.activatedRoute.snapshot.queryParams?.to ? moment(Number(this.activatedRoute.snapshot.queryParams.to)) : undefined,
             methods: this.activatedRoute.snapshot.queryParams?.methods?.split(',') ?? undefined,
+            mcpMethods: this.activatedRoute.snapshot.queryParams?.mcpMethods?.split(',') ?? undefined,
             statuses: statuses?.size > 0 ? statuses : undefined,
             entrypoints: this.activatedRoute.snapshot.queryParams?.entrypointIds?.split(',') ?? undefined,
           };
         }),
       )
-      .subscribe((data) => {
+      .subscribe(data => {
         this.initialValues = data;
       });
   }

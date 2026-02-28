@@ -28,9 +28,11 @@ import io.gravitee.gateway.dictionary.DictionaryManager;
 import io.gravitee.gateway.env.GatewayConfiguration;
 import io.gravitee.gateway.env.RequestTimeoutConfiguration;
 import io.gravitee.gateway.handlers.accesspoint.manager.AccessPointManager;
+import io.gravitee.gateway.handlers.api.registry.ApiProductRegistry;
 import io.gravitee.gateway.opentelemetry.TracingContext;
 import io.gravitee.gateway.platform.organization.manager.OrganizationManager;
 import io.gravitee.gateway.policy.PolicyConfigurationFactory;
+import io.gravitee.gateway.policy.impl.CachedPolicyConfigurationFactory;
 import io.gravitee.gateway.reactive.core.condition.CompositeConditionFilter;
 import io.gravitee.gateway.reactive.core.connection.ConnectionDrainManager;
 import io.gravitee.gateway.reactive.core.context.DefaultDeploymentContext;
@@ -68,9 +70,9 @@ import io.gravitee.plugin.entrypoint.EntrypointConnectorPluginManager;
 import io.gravitee.plugin.policy.PolicyClassLoaderFactory;
 import io.gravitee.plugin.policy.PolicyPlugin;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.ResolvableType;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -215,7 +217,11 @@ public class DefaultApiReactorFactory extends AbstractReactorFactory<Api> {
         return (
             api.getDefinitionVersion() == DefinitionVersion.V4 &&
             api.getDefinition().getType() == ApiType.PROXY &&
-            api.getDefinition().getListeners().stream().anyMatch(listener -> listener.getType() == ListenerType.HTTP)
+            api
+                .getDefinition()
+                .getListeners()
+                .stream()
+                .anyMatch(listener -> listener.getType() == ListenerType.HTTP)
         );
     }
 
@@ -345,7 +351,19 @@ public class DefaultApiReactorFactory extends AbstractReactorFactory<Api> {
         LogGuardService logGuardService,
         ConnectionDrainManager connectionDrainManager
     ) {
-        return new DefaultApiReactor(
+        // Get API Product support beans if available
+        ApiProductRegistry apiProductRegistry = null;
+        ApiProductPlanPolicyManagerFactory apiProductPlanPolicyManagerFactory = null;
+        try {
+            apiProductRegistry = applicationContext.getBean(ApiProductRegistry.class);
+            if (apiProductRegistry != null) {
+                apiProductPlanPolicyManagerFactory = createApiProductPlanPolicyManagerFactory(componentProvider, apiProductRegistry);
+            }
+        } catch (BeansException e) {
+            // API Product support may not be loaded
+        }
+
+        DefaultApiReactor reactor = new DefaultApiReactor(
             api,
             deploymentContext,
             componentProvider,
@@ -366,8 +384,39 @@ public class DefaultApiReactorFactory extends AbstractReactorFactory<Api> {
             eventManager,
             httpAcceptorFactory,
             createTracingContext(api, "API_V4"),
-            logGuardService
+            logGuardService,
+            apiProductRegistry,
+            apiProductPlanPolicyManagerFactory
         );
+        return reactor;
+    }
+
+    protected ApiProductPlanPolicyManagerFactory createApiProductPlanPolicyManagerFactory(
+        CompositeComponentProvider componentProvider,
+        ApiProductRegistry apiProductRegistry
+    ) {
+        String[] beanNamesForType = applicationContext.getBeanNamesForType(
+            ResolvableType.forClassWithGenerics(ConfigurablePluginManager.class, PolicyPlugin.class)
+        );
+        ConfigurablePluginManager<PolicyPlugin<?>> configurablePluginManager = (ConfigurablePluginManager<
+            PolicyPlugin<?>
+        >) applicationContext.getBean(beanNamesForType[0]);
+
+        DefaultClassLoader classLoader = applicationContext.getBean(DefaultClassLoader.class);
+        PolicyClassLoaderFactory policyClassLoaderFactory = applicationContext.getBean(PolicyClassLoaderFactory.class);
+
+        return api ->
+            new ApiProductPlanPolicyManager(
+                classLoader,
+                policyFactoryManager,
+                new CachedPolicyConfigurationFactory(),
+                configurablePluginManager,
+                policyClassLoaderFactory,
+                componentProvider,
+                api.getId(),
+                api.getEnvironmentId(),
+                apiProductRegistry
+            );
     }
 
     protected TracingContext createTracingContext(final Api api, final String serviceNameSpace) {

@@ -92,9 +92,9 @@ public class FlowMongo extends DeprecatedAuditable {
      */
     private List<FlowStep> interact = new ArrayList<>();
     /**
-     * Flow connect steps
+     * Flow entrypoint connect steps (Native APIs)
      */
-    private List<FlowStep> connect = new ArrayList<>();
+    private List<FlowStep> entrypointConnect = new ArrayList<>();
     /**
      * Flow state
      */
@@ -164,8 +164,8 @@ public class FlowMongo extends DeprecatedAuditable {
         return this;
     }
 
-    public FlowMongo setConnect(final List<FlowStep> connect) {
-        this.connect = connect;
+    public FlowMongo setEntrypointConnect(final List<FlowStep> entrypointConnect) {
+        this.entrypointConnect = entrypointConnect;
         return this;
     }
 

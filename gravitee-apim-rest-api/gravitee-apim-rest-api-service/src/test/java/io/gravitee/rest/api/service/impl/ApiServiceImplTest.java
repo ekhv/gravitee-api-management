@@ -173,8 +173,8 @@ public class ApiServiceImplTest {
         when(currentApi.getDefinitionContext()).thenReturn(new DefinitionContext());
         when(eventLatestRepository.search(any(), any(), anyLong(), anyLong())).thenReturn(List.of(event));
         when(apiEntrypointService.getApiEntrypoints(executionContext, currentApi)).thenReturn(entrypointEntityList);
-        when(apiConverter.toApiEntity(executionContext, api, primaryOwnerEntity, true)).thenReturn(currentApi);
-        when(apiConverter.toApiEntity(executionContext, null, null, false)).thenReturn(currentApi);
+        when(apiConverter.toApiEntity(executionContext, api, primaryOwnerEntity, true, true, true)).thenReturn(currentApi);
+        when(apiConverter.toApiEntity(executionContext, null, null, false, false, false)).thenReturn(currentApi);
         when(primaryOwnerService.getPrimaryOwner(executionContext.getOrganizationId(), api.getId())).thenReturn(primaryOwnerEntity);
         when(synchronizationService.checkSynchronization(any(), any(), any())).thenReturn(true);
         when(currentApi.getId()).thenReturn("api-id");
@@ -182,6 +182,8 @@ public class ApiServiceImplTest {
         when(currentApi.getPaths()).thenReturn(paths);
 
         boolean result = apiService.isSynchronized(executionContext, "api-id");
+
+        verify(currentApi, times(2)).setPlans(null);
 
         assertTrue(result);
     }
@@ -327,12 +329,11 @@ public class ApiServiceImplTest {
         Set<String> defaultGroups;
         // Filter out groups with apiPrimaryOwner if primaryOwner is not null and has a value
         if (primaryOwner != null && !org.apache.commons.lang3.StringUtils.isEmpty(primaryOwner.getId())) {
-            defaultGroups =
-                defaultGroupEntities
-                    .stream()
-                    .filter(group -> org.apache.commons.lang3.StringUtils.isEmpty(group.getApiPrimaryOwner()))
-                    .map(GroupEntity::getId)
-                    .collect(java.util.stream.Collectors.toSet());
+            defaultGroups = defaultGroupEntities
+                .stream()
+                .filter(group -> org.apache.commons.lang3.StringUtils.isEmpty(group.getApiPrimaryOwner()))
+                .map(GroupEntity::getId)
+                .collect(java.util.stream.Collectors.toSet());
         } else {
             defaultGroups = defaultGroupEntities.stream().map(GroupEntity::getId).collect(java.util.stream.Collectors.toSet());
         }

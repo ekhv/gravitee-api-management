@@ -38,30 +38,12 @@ describe('PortalPagesService', () => {
     httpTestingController.verify();
   });
 
-  describe('getHomepage', () => {
-    it('should call the API', (done) => {
-      const fakePortalPage = fakePortalPageWithDetails();
-
-      portalPagesService.getHomepage().subscribe((response) => {
-        expect(response).toStrictEqual(fakePortalPage);
-        done();
-      });
-
-      const req = httpTestingController.expectOne({
-        method: 'GET',
-        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-pages/_homepage`,
-      });
-
-      req.flush(fakePortalPage);
-    });
-  });
-
   describe('updatePortalPage', () => {
-    it('should call the API', (done) => {
+    it('should call the API', done => {
       const fakePortalPage = fakePortalPageWithDetails({ content: 'test' });
       const toUpdate = { content: 'test' };
 
-      portalPagesService.patchPortalPage(fakePortalPage.id, toUpdate).subscribe((response) => {
+      portalPagesService.patchPortalPage(fakePortalPage.id, toUpdate).subscribe(response => {
         expect(response).toStrictEqual(fakePortalPage);
         done();
       });
@@ -72,6 +54,49 @@ describe('PortalPagesService', () => {
       });
 
       expect(req.request.body).toEqual(toUpdate);
+      req.flush(fakePortalPage);
+    });
+  });
+
+  describe('publishPage', () => {
+    it('should call the API to publish a page', done => {
+      const pageId = 'test-98';
+      const fakePortalPage = fakePortalPageWithDetails({ published: true, id: pageId });
+
+      portalPagesService.publishPage(fakePortalPage.id).subscribe(response => {
+        expect(response).toStrictEqual(fakePortalPage);
+        done();
+      });
+
+      const req = httpTestingController.expectOne({
+        method: 'POST',
+        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-pages/${fakePortalPage.id}/_publish`,
+      });
+
+      // Expect the body to be an empty object as sent by the service
+      expect(req.request.body).toEqual({});
+      req.flush(fakePortalPage);
+    });
+  });
+
+  describe('unpublishPage', () => {
+    it('should call the API to unpublish a page', done => {
+      const pageId = 'test-99';
+      const fakePortalPage = fakePortalPageWithDetails({ published: false, id: pageId });
+
+      portalPagesService.unpublishPage(pageId).subscribe(response => {
+        expect(response).toStrictEqual(fakePortalPage);
+        done();
+      });
+
+      const req = httpTestingController.expectOne({
+        method: 'POST',
+        url: `${CONSTANTS_TESTING.env.v2BaseURL}/portal-pages/${pageId}/_unpublish`,
+      });
+
+      // Expect the body to be an empty object
+      expect(req.request.body).toEqual({});
+
       req.flush(fakePortalPage);
     });
   });

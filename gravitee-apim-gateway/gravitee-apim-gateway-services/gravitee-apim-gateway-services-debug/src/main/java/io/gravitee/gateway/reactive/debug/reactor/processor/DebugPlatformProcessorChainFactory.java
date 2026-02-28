@@ -58,12 +58,18 @@ public class DebugPlatformProcessorChainFactory extends DefaultPlatformProcessor
             eventProducer,
             node,
             port,
-            tracing,
             gatewayConfiguration,
             connectionDrainManager
         );
         this.eventRepository = eventRepository;
         this.objectMapper = objectMapper;
+    }
+
+    @Override
+    protected List<Processor> buildPreProcessorList() {
+        List<Processor> processorList = super.buildPreProcessorList();
+        processorList.add(new DebugInitProcessor());
+        return processorList;
     }
 
     @Override

@@ -19,19 +19,19 @@ import { RouterModule, Routes } from '@angular/router';
 import { PortalNavigationComponent } from './navigation/portal-navigation.component';
 import { PortalBannerComponent } from './banner/portal-banner.component';
 import { PortalThemeComponent } from './theme/portal-theme.component';
-import { PortalTopBarComponent } from './top-bar/portal-top-bar.component';
-import { MenuLinkEditComponent } from './top-bar/menu-link-edit/menu-link-edit.component';
-import { MenuLinkListComponent } from './top-bar/menu-link-list/menu-link-list.component';
+import { PortalNavigationItemsComponent } from './navigation-items/portal-navigation-items.component';
 import { PortalCatalogComponent } from './catalog/portal-catalog.component';
 import { CategoryCatalogComponent } from './catalog/category/category.component';
 import { CategoryListComponent } from './catalog/category-list/category-list.component';
 import { PortalApiComponent } from './api/portal-api.component';
 import { PortalApiListComponent } from './api/api-list/portal-api-list.component';
 import { HomepageComponent } from './homepage/homepage.component';
+import { SubscriptionFormComponent } from './subscription-form/subscription-form.component';
 
 import { PermissionGuard } from '../shared/components/gio-permission/gio-permission.guard';
 import { HasLicenseGuard } from '../shared/components/gio-license/has-license.guard';
 import { EnvironmentGuard } from '../management/environment.guard';
+import { HasUnsavedChangesGuard } from '../shared/guards/has-unsaved-changes.guard';
 
 const portalRoutes: Routes = [
   {
@@ -41,33 +41,14 @@ const portalRoutes: Routes = [
     canActivateChild: [HasLicenseGuard, PermissionGuard.checkRouteDataPermissions],
     children: [
       {
-        path: 'top-bar',
-        component: PortalTopBarComponent,
+        path: 'navigation',
+        component: PortalNavigationItemsComponent,
+        canDeactivate: [HasUnsavedChangesGuard],
         data: {
           permissions: {
             anyOf: ['environment-settings-r', 'environment-settings-u'],
           },
         },
-        children: [
-          {
-            path: '',
-            component: MenuLinkListComponent,
-            data: {
-              permissions: {
-                anyOf: ['environment-settings-r', 'environment-settings-u'],
-              },
-            },
-          },
-          {
-            path: ':menuLinkId',
-            component: MenuLinkEditComponent,
-            data: {
-              permissions: {
-                anyOf: ['environment-settings-u'],
-              },
-            },
-          },
-        ],
       },
       {
         path: 'catalog',
@@ -138,6 +119,7 @@ const portalRoutes: Routes = [
       {
         path: 'homepage',
         component: HomepageComponent,
+        canDeactivate: [HasUnsavedChangesGuard],
         data: {
           permissions: {
             anyOf: ['environment-documentation-r', 'environment-documentation-u'],
@@ -145,9 +127,19 @@ const portalRoutes: Routes = [
         },
       },
       {
+        path: 'subscription-form',
+        component: SubscriptionFormComponent,
+        canDeactivate: [HasUnsavedChangesGuard],
+        data: {
+          permissions: {
+            anyOf: ['environment-metadata-r', 'environment-metadata-u'],
+          },
+        },
+      },
+      {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'top-bar',
+        redirectTo: 'navigation',
       },
     ],
   },

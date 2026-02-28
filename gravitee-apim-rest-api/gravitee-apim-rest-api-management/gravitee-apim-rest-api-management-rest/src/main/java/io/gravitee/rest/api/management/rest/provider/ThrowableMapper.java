@@ -18,20 +18,19 @@ package io.gravitee.rest.api.management.rest.provider;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author Azize Elamrani (azize dot elamrani at gmail dot com)
  */
-@Slf4j
+@CustomLog
 @Provider
 public class ThrowableMapper extends AbstractExceptionMapper<Throwable> {
 
     @Override
     public Response toResponse(Throwable e) {
         log.error("Internal error", e);
-        return Response
-            .status(Response.Status.INTERNAL_SERVER_ERROR)
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
             .type(MediaType.APPLICATION_JSON_TYPE)
             .entity(convert(e, Response.Status.INTERNAL_SERVER_ERROR.getStatusCode()))
             .build();

@@ -41,6 +41,7 @@ import io.gravitee.rest.api.model.NewGroupEntity;
 import io.gravitee.rest.api.model.PageEntity;
 import io.gravitee.rest.api.model.PageType;
 import io.gravitee.rest.api.model.PlanEntity;
+import io.gravitee.rest.api.model.PlanType;
 import io.gravitee.rest.api.model.RoleEntity;
 import io.gravitee.rest.api.model.SystemFolderType;
 import io.gravitee.rest.api.model.UpdateApiMetadataEntity;
@@ -50,6 +51,7 @@ import io.gravitee.rest.api.model.api.DuplicateApiEntity;
 import io.gravitee.rest.api.model.api.UpdateApiEntity;
 import io.gravitee.rest.api.model.documentation.PageQuery;
 import io.gravitee.rest.api.model.permissions.RoleScope;
+import io.gravitee.rest.api.model.v4.plan.GenericPlanEntity;
 import io.gravitee.rest.api.service.ApiDuplicatorService;
 import io.gravitee.rest.api.service.ApiIdsCalculatorService;
 import io.gravitee.rest.api.service.ApiMetadataService;
@@ -98,7 +100,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import net.minidev.json.JSONObject;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Lazy;
@@ -109,7 +111,7 @@ import org.springframework.stereotype.Component;
  * @author Gaëtan MAISSE (gaetan.maisse at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 @Component
 public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDuplicatorService {
 
@@ -307,7 +309,7 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
                 .findByApi(executionContext, apiId)
                 .forEach(plan -> {
                     plan.setId(plansIdsMap.get(plan.getId()));
-                    plan.setApi(duplicatedApi.getId());
+                    plan.setReferenceId(duplicatedApi.getReferenceId());
                     if (plan.getGeneralConditions() != null) {
                         plan.setGeneralConditions(pagesIdsMap.get(plan.getGeneralConditions()));
                     }
@@ -537,7 +539,8 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
 
             // transfer the ownership
             transferOwnership(executionContext, apiEntity.getId(), currentPo, roleUsedInTransfert, futurePo);
-        } else if (!apiJsonNode.hasMembers() && apiJsonNode.isKubernetesOrigin()) { // Used by GKO
+        } else if (!apiJsonNode.hasMembers() && apiJsonNode.isKubernetesOrigin()) {
+            // Used by GKO
             // Remove all members if exist except the PO
             // get current members of the api
             Set<MemberToImport> membersAlreadyPresent = getAPICurrentMembers(executionContext, apiEntity.getId());
@@ -817,14 +820,15 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
             Map<String, PlanEntity> existingPlans = readApiPlansById(executionContext, apiEntity.getId());
             Set<PlanEntity> plansToImport = readPlansToImportFromDefinition(apiJsonNode, existingPlans);
 
-            findRemovedPlans(existingPlans.values(), plansToImport)
-                .forEach(plan -> {
-                    planService.delete(executionContext, plan.getId());
-                    apiEntity.getPlans().remove(plan);
-                });
+            findRemovedPlans(existingPlans.values(), plansToImport).forEach(plan -> {
+                planService.delete(executionContext, plan.getId());
+                apiEntity.getPlans().remove(plan);
+            });
 
             plansToImport.forEach(planEntity -> {
                 planEntity.setApi(apiEntity.getId());
+                planEntity.setReferenceType(GenericPlanEntity.ReferenceType.API);
+                planEntity.setReferenceId(apiEntity.getId());
                 replacePlanGroupNameById(executionContext, apiEntity, planEntity);
                 planService.createOrUpdatePlan(executionContext, planEntity);
                 apiEntity.getPlans().add(planEntity);
@@ -895,8 +899,7 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
                 pageService.importFiles(
                     executionContext,
                     apiId,
-                    ImportPageEntity
-                        .builder()
+                    ImportPageEntity.builder()
                         .type(PageType.ROOT)
                         .visibility(rootPage.getVisibility())
                         .published(rootPage.isPublished())
@@ -971,9 +974,8 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
                             accessControlEntity.getReferenceType().equals(AccessControlReferenceType.GROUP.name())
                         )
                         .peek(accessControlEntity -> {
-                            String groupId = pageGroupEntities.computeIfAbsent(
-                                accessControlEntity.getReferenceId(),
-                                key -> findGroupId(executionContext, key)
+                            String groupId = pageGroupEntities.computeIfAbsent(accessControlEntity.getReferenceId(), key ->
+                                findGroupId(executionContext, key)
                             );
                             accessControlEntity.setReferenceId(groupId);
                             if (groupId == null) {
@@ -994,8 +996,7 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
 
     private String findGroupId(ExecutionContext executionContext, String key) {
         try {
-            return Optional
-                .ofNullable(groupService.findById(executionContext, key))
+            return Optional.ofNullable(groupService.findById(executionContext, key))
                 .map(GroupEntity::getId)
                 .orElseThrow(() -> new GroupNotFoundException(key));
         } catch (GroupNotFoundException e) {
@@ -1086,7 +1087,12 @@ public class ApiDuplicatorServiceImpl extends AbstractService implements ApiDupl
             if (existingPlan != null) {
                 plansToImport.add(objectMapper.readerForUpdating(existingPlan).readValue(planNode.getJsonNode()));
             } else {
-                plansToImport.add(objectMapper.readValue(planNode.toString(), PlanEntity.class));
+                PlanEntity planEntity = objectMapper.readValue(planNode.toString(), PlanEntity.class);
+                planEntity.setApi(apiJsonNode.getId());
+                planEntity.setReferenceId(apiJsonNode.getId());
+                planEntity.setType(PlanType.API);
+                planEntity.setReferenceType(GenericPlanEntity.ReferenceType.API);
+                plansToImport.add(planEntity);
             }
         }
         return plansToImport;

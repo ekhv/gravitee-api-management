@@ -52,8 +52,11 @@ describe('InstanceListComponent', () => {
 
     const table = await loader.getHarness(MatTableHarness.with({ selector: '#instancesTable' }));
     const rows = await table.getRows();
-    const rowCells = await parallel(() => rows.map((row) => row.getCellTextByIndex()));
-    expect(rowCells).toStrictEqual([['There are no Gateway instances (yet).']]);
+    const rowCells = await parallel(() => rows.map(row => row.getCellTextByIndex()));
+    expect(rowCells).toHaveLength(0);
+
+    const tableElement = await table.host();
+    expect(await tableElement.text()).toContain('There are no Gateway instances (yet).');
   }));
 
   it('should display gateway instances', fakeAsync(async () => {
@@ -89,7 +92,7 @@ describe('InstanceListComponent', () => {
 
     const table = await loader.getHarness(MatTableHarness.with({ selector: '#instancesTable' }));
     const rows = await table.getRows();
-    const rowCells = await parallel(() => rows.map((row) => row.getCellTextByColumnName()));
+    const rowCells = await parallel(() => rows.map(row => row.getCellTextByColumnName()));
     expect(rowCells).toStrictEqual([
       {
         hostname: 'GW 1',
@@ -148,7 +151,7 @@ describe('InstanceListComponent', () => {
 
     const table = await loader.getHarness(MatTableHarness.with({ selector: '#instancesTable' }));
     const rows = await table.getRows();
-    const rowCells = await parallel(() => rows.map((row) => row.getCellTextByColumnName()));
+    const rowCells = await parallel(() => rows.map(row => row.getCellTextByColumnName()));
 
     expect(rowCells).toStrictEqual([
       {

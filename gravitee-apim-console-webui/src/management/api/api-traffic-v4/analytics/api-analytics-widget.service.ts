@@ -16,11 +16,12 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, catchError, map, merge, Observable, of, switchMap } from 'rxjs';
 import { shareReplay } from 'rxjs/operators';
+import { isFunction } from 'lodash';
 
 import { ApiAnalyticsWidgetConfig } from './components/api-analytics-widget/api-analytics-widget.component';
 import { ApiAnalyticsDashboardWidgetConfig } from './api-analytics-proxy/api-analytics-proxy.component';
 
-import { ApiAnalyticsV2Service } from '../../../../services-ngx/api-analytics-v2.service';
+import { ApiAnalyticsV2Service, UrlQueryParamsData } from '../../../../services-ngx/api-analytics-v2.service';
 import { GroupByResponse } from '../../../../entities/management-api-v2/analytics/analyticsGroupBy';
 import { HistogramAnalyticsResponse } from '../../../../entities/management-api-v2/analytics/analyticsHistogram';
 import { GioWidgetLayoutState } from '../../../../shared/components/gio-widget-layout/gio-widget-layout.component';
@@ -35,9 +36,9 @@ import { MultiStatsWidgetData } from '../../../../shared/components/analytics-mu
 // Interface expected from component that transforms query params to UrlParamsData
 export interface ApiAnalyticsWidgetUrlParamsData {
   timeRangeParams: TimeRangeParams;
-  httpStatuses: string[];
-  applications: string[];
-  plans: string[];
+  httpStatuses?: string[];
+  applications?: string[];
+  plans?: string[];
 }
 
 // Colors for charts
@@ -95,6 +96,10 @@ export class ApiAnalyticsWidgetService {
   ): Observable<ApiAnalyticsWidgetConfig> {
     return this.urlParamsData$().pipe(
       switchMap((urlParamsData: ApiAnalyticsWidgetUrlParamsData) => {
+        if (isFunction(widgetConfig.filterQueryParams)) {
+          urlParamsData = widgetConfig.filterQueryParams(urlParamsData);
+        }
+
         if (!urlParamsData.timeRangeParams) {
           return of(this.createErrorConfig(widgetConfig, 'No time range selected'));
         }
@@ -126,38 +131,44 @@ export class ApiAnalyticsWidgetService {
     urlParamsData: ApiAnalyticsWidgetUrlParamsData,
   ): Observable<ApiAnalyticsWidgetConfig> {
     const { timeRangeParams } = urlParamsData;
-    const params: any = {};
+    const defaultQueryParams: any = {};
 
     if (widgetConfig.statsField) {
-      params.field = widgetConfig.statsField;
+      defaultQueryParams.field = widgetConfig.statsField;
     }
 
     const query = this.queryOf(urlParamsData);
-    if (query) {
-      params.query = query;
+    let queryParams: UrlQueryParamsData = {
+      ...(query ? { query } : {}),
+    };
+    if (isFunction(widgetConfig.mapQueryParams)) {
+      queryParams = widgetConfig.mapQueryParams(urlParamsData);
     }
 
-    const cacheKey = this.createStatsCacheKey(widgetConfig.apiId, timeRangeParams, params);
+    const cacheKey = this.createStatsCacheKey(widgetConfig.apiId, timeRangeParams, { ...defaultQueryParams, ...queryParams });
 
     if (!this.statsCache.has(cacheKey)) {
-      const statsRequest$ = this.apiAnalyticsV2Service.getStats(widgetConfig.apiId, timeRangeParams, params).pipe(
-        shareReplay(1),
-        catchError((error) => {
-          this.statsCache.delete(cacheKey);
-          throw error;
-        }),
-      );
+      const statsRequest$ = this.apiAnalyticsV2Service
+        .getStats(widgetConfig.apiId, timeRangeParams, { ...defaultQueryParams, ...queryParams })
+        .pipe(
+          shareReplay(1),
+          catchError(error => {
+            this.statsCache.delete(cacheKey);
+            throw error;
+          }),
+        );
       this.statsCache.set(cacheKey, statsRequest$);
     }
 
-    return this.statsCache.get(cacheKey)!.pipe(map((response) => this.transformStatsResponseToStatsConfig(response, widgetConfig)));
+    return this.statsCache.get(cacheKey)!.pipe(map(response => this.transformStatsResponseToStatsConfig(response, widgetConfig)));
   }
 
   private transformStatsResponseToStatsConfig(
     statsResponse: AnalyticsStatsResponse,
     widgetConfig: ApiAnalyticsDashboardWidgetConfig,
   ): ApiAnalyticsWidgetConfig {
-    if (Object.values(statsResponse).every((value) => value === 0)) {
+    const statsValue = widgetConfig.statsKey ? statsResponse[widgetConfig.statsKey] : undefined;
+    if (statsValue == null || statsValue === 0) {
       return this.createEmptyConfig(widgetConfig);
     }
 
@@ -166,7 +177,7 @@ export class ApiAnalyticsWidgetService {
       tooltip: widgetConfig.tooltip,
       state: 'success',
       widgetType: 'stats' as const,
-      widgetData: { stats: statsResponse[widgetConfig.statsKey], statsUnit: widgetConfig.statsUnit },
+      widgetData: { stats: statsValue, statsUnit: widgetConfig.statsUnit },
     };
   }
 
@@ -181,27 +192,30 @@ export class ApiAnalyticsWidgetService {
     urlParamsData: ApiAnalyticsWidgetUrlParamsData,
   ): Observable<ApiAnalyticsWidgetConfig> {
     const { timeRangeParams } = urlParamsData;
-    const params: any = {};
+    const defaultQueryParams: UrlQueryParamsData = {};
 
     if (widgetConfig.groupByField) {
-      params.field = widgetConfig.groupByField;
+      defaultQueryParams.field = widgetConfig.groupByField;
     }
 
     if (widgetConfig.ranges) {
-      params.ranges = widgetConfig.ranges.map((range) => `${range.value}`).join(';');
+      defaultQueryParams.ranges = widgetConfig.ranges.map(range => `${range.value}`).join(';');
     }
 
     if (widgetConfig.orderBy) {
-      params.order = widgetConfig.orderBy;
+      defaultQueryParams.order = widgetConfig.orderBy;
     }
 
     const query = this.queryOf(urlParamsData);
-    if (query) {
-      params.query = query;
+    let queryParams: UrlQueryParamsData = {
+      ...(query ? { query } : {}),
+    };
+    if (isFunction(widgetConfig.mapQueryParams)) {
+      queryParams = widgetConfig.mapQueryParams(urlParamsData);
     }
 
     return this.apiAnalyticsV2Service
-      .getGroupBy(widgetConfig.apiId, timeRangeParams, params)
+      .getGroupBy(widgetConfig.apiId, timeRangeParams, { ...defaultQueryParams, ...queryParams })
       .pipe(map((response: GroupByResponse) => this.transformGroupByResponseToApiAnalyticsWidgetConfig(response, widgetConfig)));
   }
 
@@ -303,6 +317,7 @@ export class ApiAnalyticsWidgetService {
       title: widgetConfig.title,
       tooltip: widgetConfig.tooltip,
       state: 'success',
+      minHeight: widgetConfig.minHeight,
       widgetType: 'table',
       widgetData: {
         columns: transformedColumns,
@@ -332,12 +347,18 @@ export class ApiAnalyticsWidgetService {
       return of(this.createErrorConfig(widgetConfig, 'No aggregations specified for histogram'));
     }
 
-    const aggregationsString = widgetConfig.aggregations.map((agg) => `${agg.type}:${agg.field}`).join(',');
+    const aggregationsString = widgetConfig.aggregations.map(agg => `${agg.type}:${agg.field}`).join(',');
+
+    const query = this.queryOf(urlParamsData);
+    let queryParams: UrlQueryParamsData = {
+      ...(query ? { query } : {}),
+    };
+    if (isFunction(widgetConfig.mapQueryParams)) {
+      queryParams = widgetConfig.mapQueryParams(urlParamsData);
+    }
 
     return this.apiAnalyticsV2Service
-      .getHistogramAnalytics(widgetConfig.apiId, aggregationsString, timeRangeParams, {
-        query: this.queryOf(urlParamsData),
-      })
+      .getHistogramAnalytics(widgetConfig.apiId, aggregationsString, timeRangeParams, queryParams)
       .pipe(
         map((response: HistogramAnalyticsResponse) => this.transformHistogramResponseToApiAnalyticsWidgetConfig(response, widgetConfig)),
       );
@@ -354,7 +375,14 @@ export class ApiAnalyticsWidgetService {
     if (urlParamsData.applications && urlParamsData.applications.length > 0) {
       filters.push({ type: 'isin', field: 'application-id', values: urlParamsData.applications });
     }
-    return toQuery(filters);
+
+    const queryString = toQuery(filters);
+
+    // if (urlParamsData.terms && urlParamsData.terms.length > 0) {
+    //   queryString = queryString + '&terms=' + urlParamsData.terms;
+    // }
+
+    return queryString;
   }
 
   private transformHistogramResponseToApiAnalyticsWidgetConfig(
@@ -381,7 +409,7 @@ export class ApiAnalyticsWidgetService {
             unit: '',
           };
         })
-        .filter((item) => item !== null);
+        .filter(item => item !== null);
 
       if (items.length === 0) {
         return this.createEmptyConfig(widgetConfig);
@@ -395,6 +423,7 @@ export class ApiAnalyticsWidgetService {
         title: widgetConfig.title,
         tooltip: widgetConfig.tooltip,
         state: 'success',
+        minHeight: widgetConfig.minHeight,
         widgetType: 'multi-stats' as const,
         widgetData: multiStatsData,
       };
@@ -414,7 +443,7 @@ export class ApiAnalyticsWidgetService {
             };
           } else {
             // For single aggregation, use the bucket names as the series names
-            return value.buckets.map((bucket) => ({
+            return value.buckets.map(bucket => ({
               name: value.metadata?.[bucket.name]?.name || bucket.name,
               values: bucket.data || [],
             }));
@@ -425,9 +454,10 @@ export class ApiAnalyticsWidgetService {
       const options: GioChartLineOptions = {
         pointStart: histogramResponse.timestamp.from,
         pointInterval: histogramResponse.timestamp.interval,
+        enableMarkers: widgetConfig.lineEnableMarkers ?? false,
       };
 
-      if (lineData.length === 0 || lineData.every((bucket) => bucket.values.every((value) => value === 0))) {
+      if (lineData.length === 0 || lineData.every(bucket => bucket.values.every(value => value === 0))) {
         return this.createEmptyConfig(widgetConfig);
       }
 
@@ -435,6 +465,7 @@ export class ApiAnalyticsWidgetService {
         title: widgetConfig.title,
         tooltip: widgetConfig.tooltip,
         state: 'success',
+        minHeight: widgetConfig.minHeight,
         widgetType: 'line' as const,
         widgetData: { data: lineData, options },
       };
@@ -443,17 +474,22 @@ export class ApiAnalyticsWidgetService {
     if (widgetConfig.type === 'bar') {
       const hasMultipleAggregations = widgetConfig.aggregations && widgetConfig.aggregations.length > 1;
 
+      // TODO: Improve it to move this logic to native-analytics component side
       const isAuthenticationChart = widgetConfig.aggregations?.some(
-        (agg) => agg.field.includes('authentication-successes') || agg.field.includes('authentication-failures'),
+        agg => agg.field.includes('authentication-successes') || agg.field.includes('authentication-failures'),
       );
 
       let barData: GioChartBarData[];
 
       if (isAuthenticationChart && widgetConfig.aggregations?.length === 4) {
-        const downstreamFailure = histogramResponse.values[0]?.buckets[0]?.data || [];
-        const upstreamFailure = histogramResponse.values[1]?.buckets[0]?.data || [];
-        const upstreamSuccess = histogramResponse.values[2]?.buckets[0]?.data || [];
-        const downstreamSuccess = histogramResponse.values[3]?.buckets[0]?.data || [];
+        const downstreamFailure =
+          histogramResponse.values.find(v => v.field === 'downstream-authentication-failures-count-increment')?.buckets[0]?.data || [];
+        const upstreamFailure =
+          histogramResponse.values.find(v => v.field === 'upstream-authentication-failures-count-increment')?.buckets[0]?.data || [];
+        const upstreamSuccess =
+          histogramResponse.values.find(v => v.field === 'upstream-authentication-successes-count-increment')?.buckets[0]?.data || [];
+        const downstreamSuccess =
+          histogramResponse.values.find(v => v.field === 'downstream-authentication-successes-count-increment')?.buckets[0]?.data || [];
 
         // Sum downstream + upstream for success and failure for each time point
         const totalSuccess = downstreamSuccess.map((value, index) => value + (upstreamSuccess[index] || 0));
@@ -518,7 +554,7 @@ export class ApiAnalyticsWidgetService {
         reverseStack: true,
       };
 
-      if (barData.length === 0 || barData.every((series) => series.values.every((value) => value === 0))) {
+      if (barData.length === 0 || barData.every(series => series.values.every(value => value === 0))) {
         return this.createEmptyConfig(widgetConfig);
       }
 
@@ -526,6 +562,7 @@ export class ApiAnalyticsWidgetService {
         title: widgetConfig.title,
         tooltip: widgetConfig.tooltip,
         state: 'success',
+        minHeight: widgetConfig.minHeight,
         widgetType: 'bar' as const,
         widgetData: { data: barData, options },
       };
@@ -549,6 +586,7 @@ export class ApiAnalyticsWidgetService {
       title: widgetConfig.title,
       tooltip: widgetConfig.tooltip,
       state,
+      minHeight: widgetConfig.minHeight,
       ...(errors && { errors }),
     };
 

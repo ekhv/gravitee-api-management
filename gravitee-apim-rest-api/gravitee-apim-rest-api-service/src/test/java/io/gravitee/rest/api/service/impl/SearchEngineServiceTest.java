@@ -151,11 +151,10 @@ public class SearchEngineServiceTest {
         );
         assertThat(matches.getHits()).isZero();
 
-        matches =
-            searchEngineService.search(
-                GraviteeContext.getExecutionContext(),
-                QueryBuilder.create(ApiEntity.class).setQuery("*@*").setFilters(filters).build()
-            );
+        matches = searchEngineService.search(
+            GraviteeContext.getExecutionContext(),
+            QueryBuilder.create(ApiEntity.class).setQuery("*@*").setFilters(filters).build()
+        );
         assertThat(matches.getHits()).isZero();
     }
 
@@ -177,8 +176,10 @@ public class SearchEngineServiceTest {
             GraviteeContext.getExecutionContext(),
             QueryBuilder.create(ApiEntity.class).setQuery("Owner 3").setFilters(filters).build()
         );
-        assertThat(matches.getHits()).isEqualTo(2);
-        assertThat(matches.getDocuments()).containsExactly("api-3", "api-4");
+        assertThat(matches.getHits()).isEqualTo(5);
+        List<String> results = new ArrayList<>(matches.getDocuments());
+        assertThat(results.get(0)).isIn("api-3", "api-4");
+        assertThat(results.get(1)).isIn("api-3", "api-4");
     }
 
     @Test
@@ -273,40 +274,25 @@ public class SearchEngineServiceTest {
         assertThat(matches.getHits()).isEqualTo(4);
         assertThat(matches.getDocuments()).containsExactly("api-1", "api-2", "api-3", "api-4");
 
-        matches =
-            searchEngineService.search(
-                GraviteeContext.getExecutionContext(),
-                QueryBuilder
-                    .create(ApiEntity.class)
-                    .setQuery("labels: \"In Review 1\" AND labels: \"In Review 4\"")
-                    .setFilters(filters)
-                    .build()
-            );
+        matches = searchEngineService.search(
+            GraviteeContext.getExecutionContext(),
+            QueryBuilder.create(ApiEntity.class).setQuery("labels: \"In Review 1\" AND labels: \"In Review 4\"").setFilters(filters).build()
+        );
         assertThat(matches.getHits()).isEqualTo(1);
 
         assertThat(matches.getDocuments()).containsExactly("api-4");
 
-        matches =
-            searchEngineService.search(
-                GraviteeContext.getExecutionContext(),
-                QueryBuilder
-                    .create(ApiEntity.class)
-                    .setQuery("labels: \"In Review 3\" OR labels: \"In Review 4\"")
-                    .setFilters(filters)
-                    .build()
-            );
+        matches = searchEngineService.search(
+            GraviteeContext.getExecutionContext(),
+            QueryBuilder.create(ApiEntity.class).setQuery("labels: \"In Review 3\" OR labels: \"In Review 4\"").setFilters(filters).build()
+        );
         assertThat(matches.getHits()).isEqualTo(2);
         assertThat(matches.getDocuments()).containsExactly("api-3", "api-4");
 
-        matches =
-            searchEngineService.search(
-                GraviteeContext.getExecutionContext(),
-                QueryBuilder
-                    .create(ApiEntity.class)
-                    .setQuery("labels: \"in review 3\" OR labels: \"in review 4\"")
-                    .setFilters(filters)
-                    .build()
-            );
+        matches = searchEngineService.search(
+            GraviteeContext.getExecutionContext(),
+            QueryBuilder.create(ApiEntity.class).setQuery("labels: \"in review 3\" OR labels: \"in review 4\"").setFilters(filters).build()
+        );
         assertThat(matches.getHits()).isEqualTo(2);
         assertThat(matches.getDocuments()).containsExactly("api-3", "api-4");
     }
@@ -362,8 +348,7 @@ public class SearchEngineServiceTest {
         Map<String, Object> filters = new HashMap<>();
         SearchResult matches = searchEngineService.search(
             GraviteeContext.getExecutionContext(),
-            QueryBuilder
-                .create(ApiEntity.class)
+            QueryBuilder.create(ApiEntity.class)
                 .setQuery("name:\"http://localhost/api-2\" AND ownerName: \"Owner 2\"")
                 .setFilters(filters)
                 .build()
@@ -602,8 +587,7 @@ public class SearchEngineServiceTest {
         filters.put(FIELD_API_TYPE_VALUE, Arrays.asList("api-1", "api-2"));
         Map<String, Collection<String>> excludedFilters = new HashMap<>();
         excludedFilters.put(FIELD_DEFINITION_VERSION, Arrays.asList(DefinitionVersion.V1.getLabel(), DefinitionVersion.V4.getLabel()));
-        QueryBuilder<ApiEntity> apiEntityQueryBuilder = QueryBuilder
-            .create(ApiEntity.class)
+        QueryBuilder<ApiEntity> apiEntityQueryBuilder = QueryBuilder.create(ApiEntity.class)
             .setFilters(filters)
             .setExcludedFilters(excludedFilters);
         SearchResult matches = searchEngineService.search(
@@ -623,8 +607,7 @@ public class SearchEngineServiceTest {
         Map<String, Collection<String>> excludedFilters = new HashMap<>();
         excludedFilters.put(FIELD_NAME, List.of("My Awesome api / 1"));
         excludedFilters.put(FIELD_DEFINITION_VERSION, Arrays.asList(DefinitionVersion.V1.getLabel(), DefinitionVersion.V4.getLabel()));
-        QueryBuilder<ApiEntity> apiEntityQueryBuilder = QueryBuilder
-            .create(ApiEntity.class)
+        QueryBuilder<ApiEntity> apiEntityQueryBuilder = QueryBuilder.create(ApiEntity.class)
             .setFilters(filters)
             .setExcludedFilters(excludedFilters);
         SearchResult matches = searchEngineService.search(

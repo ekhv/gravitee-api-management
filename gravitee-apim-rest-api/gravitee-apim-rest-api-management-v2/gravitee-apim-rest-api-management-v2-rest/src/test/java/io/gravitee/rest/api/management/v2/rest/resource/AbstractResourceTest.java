@@ -32,9 +32,8 @@ import inmemory.ImportApplicationCRDDomainServiceInMemory;
 import inmemory.InMemoryAlternative;
 import inmemory.MembershipQueryServiceInMemory;
 import inmemory.ParametersQueryServiceInMemory;
-import inmemory.PortalPageContextCrudServiceInMemory;
-import inmemory.PortalPageCrudServiceInMemory;
-import inmemory.PortalPageQueryServiceInMemory;
+import inmemory.PortalPageContentCrudServiceInMemory;
+import inmemory.PortalPageContentQueryServiceInMemory;
 import inmemory.PrimaryOwnerDomainServiceInMemory;
 import inmemory.RoleQueryServiceInMemory;
 import inmemory.UserCrudServiceInMemory;
@@ -43,7 +42,6 @@ import io.gravitee.apim.core.api.domain_service.CategoryDomainService;
 import io.gravitee.apim.core.api.domain_service.VerifyApiPathDomainService;
 import io.gravitee.apim.core.api.use_case.ExportApiUseCase;
 import io.gravitee.apim.core.group.model.Group;
-import io.gravitee.apim.core.portal_page.use_case.GetHomepageUseCase;
 import io.gravitee.apim.core.specgen.use_case.SpecGenRequestUseCase;
 import io.gravitee.apim.core.user.model.BaseUserEntity;
 import io.gravitee.repository.management.api.ApiRepository;
@@ -231,16 +229,10 @@ public abstract class AbstractResourceTest extends JerseySpringTest {
     protected GroupCrudServiceInMemory groupCrudServiceInMemory;
 
     @Autowired
-    protected GetHomepageUseCase getHomepageUseCase;
+    protected PortalPageContentQueryServiceInMemory portalPageContentQueryService;
 
     @Autowired
-    protected PortalPageContextCrudServiceInMemory portalPageContextCrudService;
-
-    @Autowired
-    protected PortalPageQueryServiceInMemory portalPageQueryService;
-
-    @Autowired
-    protected PortalPageCrudServiceInMemory portalPageCrudService;
+    protected PortalPageContentCrudServiceInMemory portalPageContentCrudService;
 
     @BeforeEach
     public void setUp() {
@@ -275,8 +267,7 @@ public abstract class AbstractResourceTest extends JerseySpringTest {
     ) {
         when(permissionService.hasPermission(GraviteeContext.getExecutionContext(), permission, referenceId, action)).thenReturn(false);
 
-        MAPIAssertions
-            .assertThat(response.call())
+        MAPIAssertions.assertThat(response.call())
             .hasStatus(FORBIDDEN_403)
             .asError()
             .hasHttpStatus(FORBIDDEN_403)

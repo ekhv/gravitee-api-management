@@ -17,14 +17,10 @@ package io.gravitee.gateway.reactive.core.condition;
 
 import io.gravitee.definition.model.ConditionSupplier;
 import io.gravitee.el.exceptions.ExpressionEvaluationException;
-import io.gravitee.el.spel.function.xml.DocumentBuilderFactoryUtils;
-import io.gravitee.gateway.reactive.api.ComponentType;
 import io.gravitee.gateway.reactive.api.ExecutionWarn;
-import io.gravitee.gateway.reactive.api.context.GenericExecutionContext;
 import io.gravitee.gateway.reactive.api.context.base.BaseExecutionContext;
 import io.reactivex.rxjava3.core.Maybe;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.CustomLog;
 
 /**
  * {@link ConditionFilter} base on an EL expression.
@@ -32,9 +28,8 @@ import org.slf4j.LoggerFactory;
  * @author Jeoffrey HAEYAERT (jeoffrey.haeyaert at graviteesource.com)
  * @author GraviteeSource Team
  */
+@CustomLog
 public class ExpressionLanguageConditionFilter<T extends ConditionSupplier> implements ConditionFilter<BaseExecutionContext, T> {
-
-    private static final Logger log = LoggerFactory.getLogger(DocumentBuilderFactoryUtils.class);
 
     @Override
     public Maybe<T> filter(BaseExecutionContext ctx, T elt) {
@@ -52,7 +47,7 @@ public class ExpressionLanguageConditionFilter<T extends ConditionSupplier> impl
             .onErrorComplete(throwable -> {
                 if (throwable instanceof ExpressionEvaluationException elException) {
                     // Report the EL exception as a warning.
-                    log.warn("Error parsing condition {}", condition, throwable);
+                    ctx.withLogger(log).warn("Error parsing condition {}", condition, throwable);
                     ctx.warnWith(
                         new ExecutionWarn("EXPRESSION_EVALUATION_ERROR")
                             .message("Unable to execute EL condition " + condition)

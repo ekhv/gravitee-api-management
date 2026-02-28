@@ -24,10 +24,10 @@ import io.gravitee.rest.api.service.common.ExecutionContext;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import lombok.CustomLog;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
+@CustomLog
 @RequiredArgsConstructor
 @UseCase
 public class SearchRequestsCountByEventAnalyticsUseCase {
@@ -36,9 +36,12 @@ public class SearchRequestsCountByEventAnalyticsUseCase {
     private final ApiCrudService apiCrudService;
 
     public SearchRequestsCountByEventAnalyticsUseCase.Output execute(ExecutionContext executionContext, Input input) {
-        ApiAnalyticsSpecification
-            .forRequestsCountAnalytics()
-            .throwIfNotSatisfied(apiCrudService.get(input.apiId()), executionContext, input.from(), input.to());
+        ApiAnalyticsSpecification.forRequestsCountAnalytics().throwIfNotSatisfied(
+            apiCrudService.get(input.apiId()),
+            executionContext,
+            input.from(),
+            input.to()
+        );
 
         var countQuery = new AnalyticsQueryService.CountQuery(
             AnalyticsQueryService.SearchTermId.forApi(input.apiId),

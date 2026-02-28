@@ -38,7 +38,7 @@ import java.net.URL;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.stereotype.Component;
 
 /**
@@ -46,7 +46,7 @@ import org.springframework.stereotype.Component;
  * @author GraviteeSource Team
  */
 @Component
-@Slf4j
+@CustomLog
 public class ApiEntrypointServiceImpl implements ApiEntrypointService {
 
     private static final Pattern DUPLICATE_SLASH_REMOVER = Pattern.compile("(?<!(http:|https:))[//]+");
@@ -103,9 +103,9 @@ public class ApiEntrypointServiceImpl implements ApiEntrypointService {
 
             organizationEntrypoints.forEach(entrypoint -> {
                 // Check if organizationEntrypoints is matching all tags of the API
-                boolean isEntrypointMatching = Arrays
-                    .stream(entrypoint.getTags())
-                    .allMatch(tag -> genericApiEntity.getTags().stream().toList().contains(tag));
+                boolean isEntrypointMatching = Arrays.stream(entrypoint.getTags()).allMatch(tag ->
+                    genericApiEntity.getTags().stream().toList().contains(tag)
+                );
                 if (!isEntrypointMatching) {
                     return;
                 }
@@ -185,8 +185,7 @@ public class ApiEntrypointServiceImpl implements ApiEntrypointService {
                         virtualHost.isOverrideEntrypoint(),
                         tagEntrypoints,
                         environmentId
-                    )
-                        .stream()
+                    ).stream()
                 )
                 .toList();
         } else if (genericApiEntity.getDefinitionVersion() == DefinitionVersion.V4 && genericApiEntity instanceof NativeApiEntity api) {
@@ -196,8 +195,13 @@ public class ApiEntrypointServiceImpl implements ApiEntrypointService {
                 .filter(listener -> listener instanceof KafkaListener)
                 .flatMap(listener -> {
                     var kafkaListener = (KafkaListener) listener;
-                    return getKafkaNativeApiEntrypointEntity(kafkaListener.getHost(), kafkaDomain, kafkaPort, tagEntrypoints, environmentId)
-                        .stream();
+                    return getKafkaNativeApiEntrypointEntity(
+                        kafkaListener.getHost(),
+                        kafkaDomain,
+                        kafkaPort,
+                        tagEntrypoints,
+                        environmentId
+                    ).stream();
                 })
                 .toList();
         } else {
@@ -218,8 +222,7 @@ public class ApiEntrypointServiceImpl implements ApiEntrypointService {
                                     path.isOverrideAccess(),
                                     tagEntrypoints,
                                     environmentId
-                                )
-                                    .stream()
+                                ).stream()
                             );
                     } else if (listener instanceof TcpListener tcpListener) {
                         return tcpListener
@@ -381,16 +384,31 @@ public class ApiEntrypointServiceImpl implements ApiEntrypointService {
         }
         // V4 Native API
         if (genericApiEntity instanceof NativeApiEntity nativeApiEntity) {
-            if (nativeApiEntity.getListeners().stream().anyMatch(listener -> listener instanceof KafkaListener)) {
+            if (
+                nativeApiEntity
+                    .getListeners()
+                    .stream()
+                    .anyMatch(listener -> listener instanceof KafkaListener)
+            ) {
                 return EntrypointEntity.Target.KAFKA;
             }
         }
         // V4 API
         if (genericApiEntity instanceof io.gravitee.rest.api.model.v4.api.ApiEntity apiEntity) {
-            if (apiEntity.getListeners().stream().anyMatch(listener -> listener instanceof TcpListener)) {
+            if (
+                apiEntity
+                    .getListeners()
+                    .stream()
+                    .anyMatch(listener -> listener instanceof TcpListener)
+            ) {
                 return EntrypointEntity.Target.TCP;
             }
-            if (apiEntity.getListeners().stream().anyMatch(listener -> listener instanceof HttpListener)) {
+            if (
+                apiEntity
+                    .getListeners()
+                    .stream()
+                    .anyMatch(listener -> listener instanceof HttpListener)
+            ) {
                 return EntrypointEntity.Target.HTTP;
             }
         }

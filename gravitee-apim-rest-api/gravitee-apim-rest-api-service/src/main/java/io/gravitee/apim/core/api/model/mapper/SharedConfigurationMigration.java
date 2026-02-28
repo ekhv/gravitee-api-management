@@ -15,13 +15,15 @@
  */
 package io.gravitee.apim.core.api.model.mapper;
 
-import static io.gravitee.definition.model.v4.http.ProtocolVersion.*;
+import static io.gravitee.plugin.configurations.http.ProtocolVersion.HTTP_1_1;
+import static io.gravitee.plugin.configurations.http.ProtocolVersion.HTTP_2;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.gravitee.definition.model.HttpClientSslOptions;
-import io.gravitee.definition.model.v4.ssl.SslOptions;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
+import io.gravitee.plugin.configurations.ssl.SslOptions;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 
@@ -66,10 +68,31 @@ public class SharedConfigurationMigration {
         ObjectNode httpClientOptions = mapHttpClientOptions(source.getHttpClientOptions());
         ObjectNode httpClientSslOptionsNode = mapHttpClientSslOptions(source.getHttpClientSslOptions());
         ObjectNode sharedConfiguration = objectMapper.createObjectNode();
-        sharedConfiguration.set("http", httpClientOptions);
-        sharedConfiguration.set("ssl", httpClientSslOptionsNode);
-        sharedConfiguration.set("headers", source.getHeaders() == null ? null : objectMapper.valueToTree(source.getHeaders()));
-        sharedConfiguration.set("proxy", source.getHttpProxy() == null ? null : objectMapper.valueToTree((source.getHttpProxy())));
+        if (httpClientOptions != null) {
+            sharedConfiguration.set("http", httpClientOptions);
+        }
+        if (httpClientSslOptionsNode != null) {
+            sharedConfiguration.set("ssl", httpClientSslOptionsNode);
+        }
+        if (source.getHeaders() != null) {
+            sharedConfiguration.set("headers", objectMapper.valueToTree(source.getHeaders()));
+        }
+        if (source.getHttpProxy() != null) {
+            ObjectNode proxyNode = (ObjectNode) objectMapper.valueToTree(source.getHttpProxy());
+            if (source.getHttpProxy().isEnabled() && source.getHttpProxy().isUseSystemProxy()) {
+                proxyNode.remove("host");
+                proxyNode.remove("port");
+                proxyNode.remove("type");
+                proxyNode.put("useSystemProxy", true);
+                proxyNode.remove("enabled");
+            } else {
+                String host = source.getHttpProxy().getHost();
+                if (host == null || host.isEmpty()) {
+                    proxyNode.put("host", "/");
+                }
+            }
+            sharedConfiguration.set("proxy", proxyNode);
+        }
         return objectMapper.writeValueAsString(sharedConfiguration);
     }
 
@@ -78,7 +101,7 @@ public class SharedConfigurationMigration {
             return null;
         }
 
-        var v4 = new io.gravitee.definition.model.v4.http.HttpClientOptions();
+        var v4 = new HttpClientOptions();
 
         var versionV4 = httpClientOptions.getVersion() == io.gravitee.definition.model.ProtocolVersion.HTTP_1_1 ? HTTP_1_1 : HTTP_2;
 

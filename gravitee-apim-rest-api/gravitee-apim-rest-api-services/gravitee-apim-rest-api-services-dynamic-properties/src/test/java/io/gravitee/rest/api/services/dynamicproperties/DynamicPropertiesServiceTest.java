@@ -17,6 +17,7 @@ package io.gravitee.rest.api.services.dynamicproperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -114,10 +115,11 @@ public class DynamicPropertiesServiceTest {
         environment.setId(ENVIRONMENT_ID);
         environment.setOrganizationId(ORGANIZATION_ID);
         lenient().when(environmentService.findById(environment.getId())).thenReturn(environment);
-        lenient().doCallRealMethod().when(apiConverter).toApiEntity(any(), any());
+        lenient().doCallRealMethod().when(apiConverter).toApiEntity(any(), any(), eq(false));
         lenient()
             .when(objectMapper.readValue(any(String.class), (Class<Object>) any()))
-            .thenAnswer(i -> graviteeMapper.readValue((String) i.getArgument(0), (Class<io.gravitee.definition.model.Api>) i.getArgument(1))
+            .thenAnswer(i ->
+                graviteeMapper.readValue((String) i.getArgument(0), (Class<io.gravitee.definition.model.Api>) i.getArgument(1))
             );
     }
 

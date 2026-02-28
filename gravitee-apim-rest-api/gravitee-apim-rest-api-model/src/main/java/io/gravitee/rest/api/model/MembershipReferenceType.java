@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public enum MembershipReferenceType {
     APPLICATION(EnumSet.of(RoleScope.APPLICATION)),
     API(EnumSet.of(RoleScope.API)),
+    API_PRODUCT(EnumSet.of(RoleScope.API_PRODUCT)),
     GROUP(EnumSet.of(RoleScope.GROUP, RoleScope.API, RoleScope.APPLICATION, RoleScope.INTEGRATION, RoleScope.CLUSTER)),
     ENVIRONMENT(EnumSet.allOf(RoleScope.class)),
     ORGANIZATION(EnumSet.allOf(RoleScope.class)),
@@ -45,6 +46,10 @@ public enum MembershipReferenceType {
     public RoleScope findScope() {
         return roleScopes.size() == 1
             ? roleScopes.iterator().next()
-            : roleScopes.stream().filter(scope -> scope.name().equals(name())).findFirst().orElse(roleScopes.iterator().next());
+            : roleScopes
+                .stream()
+                .filter(scope -> scope.name().equals(name()))
+                .findFirst()
+                .orElse(roleScopes.iterator().next());
     }
 }

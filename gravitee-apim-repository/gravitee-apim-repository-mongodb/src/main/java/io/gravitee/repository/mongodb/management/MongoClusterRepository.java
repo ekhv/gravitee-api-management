@@ -32,13 +32,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
+@CustomLog
 @AllArgsConstructor
 public class MongoClusterRepository implements ClusterRepository {
 
@@ -105,10 +105,9 @@ public class MongoClusterRepository implements ClusterRepository {
         final String sortField = FieldUtils.toCamelCase(sortable.field());
 
         return this.internalClusterMongoRepo.search(
-                criteria,
-                PageRequest.of(pageable.pageNumber(), pageable.pageSize(), sortOrder, sortField)
-            )
-            .map(mapper::map);
+            criteria,
+            PageRequest.of(pageable.pageNumber(), pageable.pageSize(), sortOrder, sortField)
+        ).map(mapper::map);
     }
 
     @Override
@@ -119,5 +118,29 @@ public class MongoClusterRepository implements ClusterRepository {
             throw new IllegalStateException(String.format("No cluster found with id [%s]", clusterId));
         }
         log.debug("Update groups for cluster id [{}] - Done", clusterId);
+    }
+
+    @Override
+    public void deleteByEnvironmentId(String environmentId) throws TechnicalException {
+        log.debug("Delete cluster by environment id [{}]", environmentId);
+        try {
+            internalClusterMongoRepo.deleteByEnvironmentId(environmentId);
+        } catch (Exception ex) {
+            final String error = String.format("Unable to delete cluster by environment id [%s]", environmentId);
+            log.error(error, ex);
+            throw new TechnicalException(error, ex);
+        }
+    }
+
+    @Override
+    public void deleteByOrganizationId(String organizationId) throws TechnicalException {
+        log.debug("Delete cluster by organization id [{}]", organizationId);
+        try {
+            internalClusterMongoRepo.deleteByOrganizationId(organizationId);
+        } catch (Exception ex) {
+            final String error = String.format("Unable to delete cluster by organization id [%s]", organizationId);
+            log.error(error, ex);
+            throw new TechnicalException(error, ex);
+        }
     }
 }

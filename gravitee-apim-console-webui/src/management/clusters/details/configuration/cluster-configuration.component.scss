@@ -1,6 +1,6 @@
 @use 'sass:map';
-@use '../../../../../node_modules/@angular/material/index' as mat;
-@use '../../../../../node_modules/@gravitee/ui-particles-angular/index' as gio;
+@use '@angular/material/index' as mat;
+@use '@gravitee/ui-particles-angular/index' as gio;
 
 @use '../../../../scss/gio-layout' as gio-layout;
 
@@ -21,4 +21,11 @@
     width: 100%;
     margin-bottom: 8px;
   }
+}
+
+.loader {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
 }

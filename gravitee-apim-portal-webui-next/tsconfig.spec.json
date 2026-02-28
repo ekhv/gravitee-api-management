@@ -3,9 +3,9 @@
   "compilerOptions": {
     "outDir": "./out-tsc/spec",
     "module": "CommonJs",
-    "types": ["jest"],
+    "types": ["@angular/localize", "jest"],
     "target": "ES2016"
   },
-  "include": ["src/**/*.spec.ts", "src/**/*.d.ts", "projects/gravitee-markdown/**/*.spec.ts", "projects/gravitee-markdown/**/*.d.ts"],
+  "include": ["src/**/*.spec.ts", "src/**/*.d.ts"],
   "exclude": []
 }

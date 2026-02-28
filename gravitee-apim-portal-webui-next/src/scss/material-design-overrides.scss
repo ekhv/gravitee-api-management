@@ -19,18 +19,19 @@
 @use './m3-adapter';
 
 mat-chip {
-  --mdc-chip-elevated-container-color: #{theme.$chip-background};
+  --mat-chip-elevated-container-color: #{theme.$chip-background};
 }
 
 mat-dialog-container {
-  --mdc-dialog-container-color: #{theme.$card-background-color};
+  --mat-dialog-container-color: #{theme.$card-background-color};
+  --mat-dialog-container-shape: #{theme.$container-shape};
 }
 
 mat-form-field {
-  --mdc-filled-text-field-container-color: #{m3-adapter.$surface-variant};
-  --mdc-filled-text-field-disabled-container-color: #{m3-adapter.$surface-variant};
-  --mdc-filled-text-field-disabled-input-text-color: var(--mdc-filled-text-field-input-text-color);
-  --mdc-outlined-text-field-container-color: #{theme.$card-background-color};
+  --mat-form-field-filled-container-color: #{m3-adapter.$surface-variant};
+  --mat-form-field-filled-disabled-container-color: #{m3-adapter.$surface-variant};
+  --mat-form-field-filled-disabled-input-text-color: var(--mat-form-field-filled-input-text-color);
+  --mat-form-field-outlined-container-color: #{theme.$card-background-color};
 }
 
 mat-expansion-panel {
@@ -62,6 +63,11 @@ mat-datepicker-content.mat-datepicker-content.mat-primary {
       text-label-text-color: #{theme.$button-text-text-color},
     )
   );
+}
+
+.mat-warn.mat-mdc-button-base.mat-mdc-outlined-button {
+  --mat-button-outlined-label-text-color: #{theme.$error-main-color};
+  --mat-button-outlined-outline-color: #{theme.$error-main-color};
 }
 
 table.mat-mdc-table {
@@ -101,4 +107,46 @@ mat-card {
 
 .secondary-button {
   @include mat.button-color(theme.$light-theme, $color-variant: secondary);
+}
+
+.nav-button {
+  @include mat.button-overrides(
+    (
+      outlined-outline-color: transparent,
+      outlined-label-text-color: #{theme.$nav-bar-link-color},
+      filled-label-text-color: #{theme.$nav-bar-link-active-color},
+      filled-container-color: #{theme.$nav-bar-link-active-background-color},
+      outlined-hover-state-layer-opacity: 7%,
+      filled-horizontal-padding: #{theme.$nav-bar-link-padding},
+      outlined-horizontal-padding: #{theme.$nav-bar-link-padding},
+      outlined-outline-width: 0,
+    )
+  );
+}
+
+mat-icon,
+.material-icons {
+  display: inline-block;
+  direction: ltr;
+  font-family: 'Material Icons', serif;
+
+  /* Support for IE. */
+  font-feature-settings: 'liga';
+  font-size: 24px; /* Preferred icon size */
+
+  /* Support for all WebKit browsers. */
+  -webkit-font-smoothing: antialiased;
+
+  /* Support for Firefox. */
+  -moz-osx-font-smoothing: grayscale;
+  font-style: normal;
+  font-weight: normal;
+  letter-spacing: normal;
+  line-height: 1;
+
+  /* Support for Safari and Chrome. */
+  text-rendering: optimizelegibility;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
 }

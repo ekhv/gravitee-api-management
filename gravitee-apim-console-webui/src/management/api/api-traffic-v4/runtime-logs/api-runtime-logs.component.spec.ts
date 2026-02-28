@@ -17,6 +17,7 @@ import { ComponentFixture, discardPeriodicTasks, fakeAsync, TestBed, tick } from
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatTableHarness } from '@angular/material/table/testing';
 import { MatIconTestingModule } from '@angular/material/icon/testing';
 import moment from 'moment';
 import { OwlDateTimeModule } from '@danielmoncada/angular-datetime-picker';
@@ -139,23 +140,27 @@ describe('ApiRuntimeLogsComponent', () => {
 
     it('should display the empty panel', async () => {
       const logsListHarness = await componentHarness.listHarness();
-      expect(await logsListHarness.countRows()).toStrictEqual(1);
-      expect(await logsListHarness.computeTableCells()).toStrictEqual({
-        headerCells: [
-          {
-            URI: 'URI',
-            actions: '',
-            application: 'Application',
-            plan: 'Plan',
-            method: 'Method',
-            responseTime: 'Response time',
-            status: 'Status',
-            timestamp: 'Timestamp',
-            diagnostics: 'Diagnostics',
-          },
-        ],
-        rowCells: [['No data to displayMore data may be available. Try widening your timeframe or adjusting your filters.']],
-      });
+      expect(await logsListHarness.countRows()).toStrictEqual(0);
+      const tableCells = await logsListHarness.computeTableCells();
+      expect(tableCells.headerCells).toEqual([
+        {
+          URI: 'URI',
+          actions: '',
+          application: 'Application',
+          plan: 'Plan',
+          method: 'Method',
+          responseTime: 'Response time',
+          status: 'Status',
+          timestamp: 'Timestamp',
+          issues: 'Issues',
+        },
+      ]);
+      expect(tableCells.rowCells).toHaveLength(0);
+
+      const table = await TestbedHarnessEnvironment.loader(fixture).getHarness(MatTableHarness);
+      const tableElement = await table.host();
+      expect(await tableElement.text()).toContain('No data to display');
+      expect(await tableElement.text()).toContain('More data may be available. Try widening your timeframe or adjusting your filters.');
     });
   });
 
@@ -205,7 +210,7 @@ describe('ApiRuntimeLogsComponent', () => {
               responseTime: 'Response time',
               status: 'Status',
               timestamp: 'Timestamp',
-              diagnostics: 'Diagnostics',
+              issues: 'Issues',
             },
           ],
           rowCells: [['02/02/2020 20:22:02.000', 'GET', '200', '/api-uri', 'My first application', 'Default plan', '42ms', '', '', '']],
@@ -497,7 +502,7 @@ describe('ApiRuntimeLogsComponent', () => {
         const select = await componentHarness.selectPeriodFromMoreFilters();
         await select.clickOptions({ text: 'Last 5 Minutes' });
         await componentHarness.moreFiltersApply();
-        expect(await componentHarness.selectPeriodQuickFilter().then((select) => select.getValueText())).toEqual('Last 5 Minutes');
+        expect(await componentHarness.selectPeriodQuickFilter().then(select => select.getValueText())).toEqual('Last 5 Minutes');
         expectApiWithLogs(total, { perPage, page: 1, from: fakeNow.valueOf() - 5 * 60 * 1000, to: fakeNow.valueOf() });
       });
 
@@ -673,7 +678,7 @@ describe('ApiRuntimeLogsComponent', () => {
         expectApplicationFindById(application);
         expectApplicationFindById(anotherApplication);
 
-        await componentHarness.quickFiltersHarness().then((harness) => harness.clickResetFilters());
+        await componentHarness.quickFiltersHarness().then(harness => harness.clickResetFilters());
         expect(await componentHarness.getSelectedPlans()).toEqual('');
         expectApiWithLogs(10, { page: 1, perPage: 10 });
 
@@ -685,7 +690,7 @@ describe('ApiRuntimeLogsComponent', () => {
         await componentHarness.moreFiltersApply();
         expectApiWithLogs(10, { page: 1, perPage: 10, from: fromDateTime, to: toDateTime });
 
-        await componentHarness.quickFiltersHarness().then((harness) => harness.clickResetFilters());
+        await componentHarness.quickFiltersHarness().then(harness => harness.clickResetFilters());
         expectApiWithLogs(10, { page: 1, perPage: 10 });
 
         await componentHarness.moreFiltersButtonClick();
@@ -880,7 +885,7 @@ describe('ApiRuntimeLogsComponent', () => {
           url: `${CONSTANTS_TESTING.env.baseURL}/applications/_paged?page=1&size=10&query=${searchTerm}`,
           method: 'GET',
         })
-        .filter((req) => !req.cancelled);
+        .filter(req => !req.cancelled);
       expect(req.length).toEqual(1);
       req[0].flush(fakePagedResult(applications));
     } else {
@@ -897,7 +902,7 @@ describe('ApiRuntimeLogsComponent', () => {
       httpTestingController
         .expectOne({
           url: `${CONSTANTS_TESTING.env.baseURL}/applications/_paged?page=1&size=${applications.length}${applications
-            .map((app) => `&ids=${app.id}`)
+            .map(app => `&ids=${app.id}`)
             .join('')}`,
           method: 'GET',
         })
@@ -917,7 +922,7 @@ describe('ApiRuntimeLogsComponent', () => {
         url: `${CONSTANTS_TESTING.env.baseURL}/applications/${application.id}`,
         method: 'GET',
       })
-      .filter((req) => !req.cancelled);
+      .filter(req => !req.cancelled);
     expect(req.length > 0).toBeTruthy();
     req[0].flush(application);
     fixture.detectChanges();
@@ -941,6 +946,7 @@ describe('ApiRuntimeLogsComponent', () => {
         entrypointIds: null,
         planIds: null,
         methods: null,
+        mcpMethods: null,
         statuses: null,
         from: null,
         to: null,

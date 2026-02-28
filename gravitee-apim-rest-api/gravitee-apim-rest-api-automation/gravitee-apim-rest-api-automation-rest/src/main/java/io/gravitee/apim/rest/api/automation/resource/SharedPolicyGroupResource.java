@@ -34,13 +34,13 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Response;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author Antoine CORDIER (antoine.cordier at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class SharedPolicyGroupResource extends AbstractResource {
 
     @Inject
@@ -72,13 +72,11 @@ public class SharedPolicyGroupResource extends AbstractResource {
         var executionContext = GraviteeContext.getExecutionContext();
         var userDetails = getAuthenticatedUserDetails();
 
-        var auditInfo = AuditInfo
-            .builder()
+        var auditInfo = AuditInfo.builder()
             .organizationId(executionContext.getOrganizationId())
             .environmentId(executionContext.getEnvironmentId())
             .actor(
-                AuditActor
-                    .builder()
+                AuditActor.builder()
                     .userId(userDetails.getUsername())
                     .userSource(userDetails.getSource())
                     .userSourceId(userDetails.getSourceId())

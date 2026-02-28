@@ -28,6 +28,9 @@ import java.util.Date;
 class PlanMigration {
 
     MigrationResult<io.gravitee.apim.core.plan.model.Plan> mapPlan(io.gravitee.apim.core.plan.model.Plan plan) {
+        if (plan.getDefinitionVersion() == DefinitionVersion.V4) {
+            return MigrationResult.value(plan);
+        }
         return MigrationResult.value(
             plan
                 .toBuilder()
@@ -49,7 +52,7 @@ class PlanMigration {
             planDefinitionV2.getSelectionRule(),
             planDefinitionV2.getTags(),
             PlanStatus.valueOf(planDefinitionV2.getStatus()),
-            null/* flows are managed in another place because is in a different collection */
+            null /* flows are managed in another place because is in a different collection */
         );
     }
 }

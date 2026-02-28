@@ -15,6 +15,7 @@
  */
 import { ComponentHarness, TestElement } from '@angular/cdk/testing';
 import { MatButtonHarness } from '@angular/material/button/testing';
+import { GioMonacoEditorHarness } from '@gravitee/ui-particles-angular';
 
 import { GioFormColorInputHarness } from '../../shared/components/gio-form-color-input/gio-form-color-input.harness';
 
@@ -26,8 +27,11 @@ export class PortalThemeHarness extends ComponentHarness {
   private getDiscardButton = this.locatorFor(MatButtonHarness.with({ selector: '[type=button]' }));
   private newPortalBadgeLocator = this.locatorFor('[data-testid="new-portal-badge"]');
 
+  private getRestoreDefaultsButton = this.locatorFor(MatButtonHarness.with({ selector: '[matTooltip="Restore default values"]' }));
+  private getMonacoEditor = this.locatorFor(GioMonacoEditorHarness.with({ selector: '[formControlName="customCSS"]' }));
+
   public async setPrimaryColor(color: string) {
-    return this.getPrimaryColorInput().then((input) => input.setValue(color));
+    return this.getPrimaryColorInput().then(input => input.setValue(color));
   }
 
   async getNewPortalBadge(): Promise<TestElement> {
@@ -35,18 +39,30 @@ export class PortalThemeHarness extends ComponentHarness {
   }
 
   public async getPrimaryColor() {
-    return this.getPrimaryColorInput().then((input) => input.getValue());
+    return this.getPrimaryColorInput().then(input => input.getValue());
   }
 
   public async submit() {
-    return this.getPublishButton().then((publishButton) => publishButton.click());
+    return this.getPublishButton().then(publishButton => publishButton.click());
   }
 
   public async isSubmitInvalid() {
-    return this.getPublishButton().then((publishButton) => publishButton.isDisabled());
+    return this.getPublishButton().then(publishButton => publishButton.isDisabled());
   }
 
   public reset() {
-    return this.getDiscardButton().then((discardButton) => discardButton.click());
+    return this.getDiscardButton().then(discardButton => discardButton.click());
+  }
+
+  async getCustomCSS(): Promise<string> {
+    return (await this.getMonacoEditor()).getValue();
+  }
+
+  async setCustomCSS(css: string): Promise<void> {
+    return (await this.getMonacoEditor()).setValue(css);
+  }
+
+  async clickRestoreDefaults(): Promise<void> {
+    return (await this.getRestoreDefaultsButton()).click();
   }
 }

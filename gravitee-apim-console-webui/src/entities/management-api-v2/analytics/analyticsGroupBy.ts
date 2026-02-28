@@ -21,4 +21,10 @@ export interface GroupByResponse {
 
 export type Metadata = Record<string, { name: string; unknown?: boolean; order: number }>;
 
-export type GroupByField = 'host' | 'status' | 'application-id' | 'plan-id' | 'path-info.keyword';
+export type GroupByField =
+  | 'host'
+  | 'status'
+  | 'application-id'
+  | 'plan-id'
+  | 'path-info.keyword'
+  | 'additional-metrics.long_mcp-proxy_response-error-code';

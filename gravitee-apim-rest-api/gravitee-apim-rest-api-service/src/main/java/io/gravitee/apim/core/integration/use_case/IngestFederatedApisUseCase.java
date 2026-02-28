@@ -66,11 +66,11 @@ import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.CustomLog;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @UseCase
-@Slf4j
+@CustomLog
 @RequiredArgsConstructor
 public class IngestFederatedApisUseCase {
 
@@ -102,8 +102,7 @@ public class IngestFederatedApisUseCase {
         var ingestJobId = input.ingestJobId;
         var organizationId = input.organizationId();
 
-        return Maybe
-            .defer(() -> Maybe.fromOptional(asyncJobCrudService.findById(ingestJobId)))
+        return Maybe.defer(() -> Maybe.fromOptional(asyncJobCrudService.findById(ingestJobId)))
             .subscribeOn(Schedulers.computation())
             .doOnSuccess(job -> {
                 var environmentId = job.getEnvironmentId();
@@ -202,7 +201,7 @@ public class IngestFederatedApisUseCase {
                     subscriptionQueryService
                         .findActiveSubscriptionsByPlan(existing.getId())
                         .forEach(activeSubscription ->
-                            closeSubscriptionDomainService.closeSubscription(activeSubscription.getId(), auditInfo)
+                            closeSubscriptionDomainService.closeSubscription(activeSubscription.getId(), federatedApi, auditInfo)
                         );
 
                     //Delete all subscriptions
@@ -277,8 +276,7 @@ public class IngestFederatedApisUseCase {
 
     private Page buildSwaggerPage(String referenceId, IntegrationApi.Page page) {
         var now = Date.from(TimeProvider.instantNow());
-        return Page
-            .builder()
+        return Page.builder()
             .id(UuidString.generateRandom())
             .name(page.filename())
             .content(page.content())
@@ -297,8 +295,7 @@ public class IngestFederatedApisUseCase {
 
     private Page buildAsyncApiPage(String referenceId, IntegrationApi.Page page) {
         var now = Date.from(TimeProvider.instantNow());
-        return Page
-            .builder()
+        return Page.builder()
             .id(UuidString.generateRandom())
             .name(page.filename())
             .content(page.content())
@@ -321,24 +318,22 @@ public class IngestFederatedApisUseCase {
                 .name(newOne.getName())
                 .description(newOne.getDescription())
                 .version(newOne.getVersion())
-                .federatedApiDefinition(newOne.getFederatedApiDefinition())
+                .apiDefinitionValue(newOne.getApiDefinitionValue())
                 .build();
     }
 
     private static List<ApiMetadata> metadata(IntegrationApi api, Api federatedApi) {
         return stream(api.metadata())
             .map(md -> {
-                var format =
-                    switch (md.format()) {
-                        case STRING -> Metadata.MetadataFormat.STRING;
-                        case NUMERIC -> Metadata.MetadataFormat.NUMERIC;
-                        case MAIL -> Metadata.MetadataFormat.MAIL;
-                        case DATE -> Metadata.MetadataFormat.DATE;
-                        case URL -> Metadata.MetadataFormat.URL;
-                        case BOOLEAN -> Metadata.MetadataFormat.BOOLEAN;
-                    };
-                return ApiMetadata
-                    .builder()
+                var format = switch (md.format()) {
+                    case STRING -> Metadata.MetadataFormat.STRING;
+                    case NUMERIC -> Metadata.MetadataFormat.NUMERIC;
+                    case MAIL -> Metadata.MetadataFormat.MAIL;
+                    case DATE -> Metadata.MetadataFormat.DATE;
+                    case URL -> Metadata.MetadataFormat.URL;
+                    case BOOLEAN -> Metadata.MetadataFormat.BOOLEAN;
+                };
+                return ApiMetadata.builder()
                     .apiId(federatedApi.getId())
                     .name(md.name())
                     .key(md.name())

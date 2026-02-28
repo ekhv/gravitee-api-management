@@ -15,6 +15,12 @@
  */
 package io.gravitee.repository.log.v4.api;
 
+import io.gravitee.repository.analytics.engine.api.query.FacetsQuery;
+import io.gravitee.repository.analytics.engine.api.query.MeasuresQuery;
+import io.gravitee.repository.analytics.engine.api.query.TimeSeriesQuery;
+import io.gravitee.repository.analytics.engine.api.result.FacetsResult;
+import io.gravitee.repository.analytics.engine.api.result.MeasuresResult;
+import io.gravitee.repository.analytics.engine.api.result.TimeSeriesResult;
 import io.gravitee.repository.analytics.query.events.EventAnalyticsAggregate;
 import io.gravitee.repository.common.query.QueryContext;
 import io.gravitee.repository.log.v4.model.analytics.ApiMetricsDetail;
@@ -82,4 +88,12 @@ public interface AnalyticsRepository {
     Optional<ApiMetricsDetail> findApiMetricsDetail(QueryContext queryContext, ApiMetricsDetailQuery query);
 
     Optional<EventAnalyticsAggregate> searchEventAnalytics(QueryContext queryContext, HistogramQuery query);
+
+    MeasuresResult searchHTTPMeasures(QueryContext queryContext, MeasuresQuery query);
+
+    FacetsResult searchHTTPFacets(QueryContext queryContext, FacetsQuery query);
+
+    TimeSeriesResult searchHTTPTimeSeries(QueryContext queryContext, TimeSeriesQuery query);
+
+    MeasuresResult searchMessageMeasures(QueryContext queryContext, MeasuresQuery query);
 }

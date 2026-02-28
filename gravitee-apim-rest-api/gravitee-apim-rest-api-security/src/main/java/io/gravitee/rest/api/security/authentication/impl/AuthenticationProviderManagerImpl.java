@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.ConfigurableEnvironment;
@@ -32,7 +32,7 @@ import org.springframework.core.env.ConfigurableEnvironment;
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class AuthenticationProviderManagerImpl implements AuthenticationProviderManager, InitializingBean {
 
     @Autowired
@@ -52,7 +52,10 @@ public class AuthenticationProviderManagerImpl implements AuthenticationProvider
 
     @Override
     public Optional<AuthenticationProvider> findIdentityProviderByType(String type) {
-        return identityProviders.stream().filter(provider -> provider.type().equalsIgnoreCase(type)).findFirst();
+        return identityProviders
+            .stream()
+            .filter(provider -> provider.type().equalsIgnoreCase(type))
+            .findFirst();
     }
 
     private Map<String, Object> getConfiguration(AuthenticationProvider provider) {
