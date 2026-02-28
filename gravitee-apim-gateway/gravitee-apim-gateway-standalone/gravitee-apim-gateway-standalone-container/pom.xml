@@ -517,15 +517,19 @@
             </activation>
             <dependencies>
                 <!-- Cloud -->
-                <dependency>
+                <!-- <dependency>
                     <groupId>com.graviteesource.cloud</groupId>
                     <artifactId>gravitee-cloud-initializer</artifactId>
+<<<<<<< HEAD
                 </dependency>
 
                 <dependency>
                     <groupId>com.graviteesource.common</groupId>
                     <artifactId>gravitee-common-mcp</artifactId>
                 </dependency>
+=======
+                </dependency> -->
+>>>>>>> b6653f3d1d (fix: remove gravitee-cloud-initializer from dependencies)
             </dependencies>
         </profile>
     </profiles>
