@@ -257,8 +257,10 @@
         <gravitee-notifier-slack.version>2.0.0-alpha.1</gravitee-notifier-slack.version>
         <gravitee-notifier-webhook.version>2.0.0-alpha.1</gravitee-notifier-webhook.version>
         <!-- Gateway Only -->
-        <gravitee-reporter-tcp.version>4.0.0-alpha.1</gravitee-reporter-tcp.version>
-        <gravitee-reporter-cloud.version>3.0.0-alpha.1</gravitee-reporter-cloud.version>
+        <gravitee-reporter-elasticsearch.version>6.2.2</gravitee-reporter-elasticsearch.version>
+        <gravitee-reporter-file.version>3.5.5</gravitee-reporter-file.version>
+        <gravitee-reporter-tcp.version>2.6.4</gravitee-reporter-tcp.version>
+        <gravitee-reporter-cloud.version>1.6.0-alpha.6</gravitee-reporter-cloud.version>
         <!--    Version of policy-ratelimit is also used for policy-quota, policy-spikearrest and gateway-services-ratelimit    -->
         <!--    <gravitee-gateway-services-ratelimit.version>3.0.0</gravitee-gateway-services-ratelimit.version>    -->
         <gravitee-tracer-jaeger.version>3.0.1</gravitee-tracer-jaeger.version>
@@ -271,10 +273,10 @@
         <gravitee-policy-geoip-filtering.version>2.2.2</gravitee-policy-geoip-filtering.version>
         <gravitee-resource-auth-provider-http.version>1.4.0</gravitee-resource-auth-provider-http.version>
         <gravitee-resource-auth-provider-inline.version>1.4.0</gravitee-resource-auth-provider-inline.version>
-        <gravitee-resource-auth-provider-ldap.version>2.0.1</gravitee-resource-auth-provider-ldap.version>
+        <gravitee-resource-auth-provider-ldap.version>2.0.0</gravitee-resource-auth-provider-ldap.version>
         <gravitee-resource-cache-redis.version>4.0.3</gravitee-resource-cache-redis.version>
-        <gravitee-resource-oauth2-provider-keycloak.version>3.0.0</gravitee-resource-oauth2-provider-keycloak.version>
-        <gravitee-resource-ai-model-text-classification.version>2.2.1</gravitee-resource-ai-model-text-classification.version>
+        <gravitee-resource-oauth2-provider-keycloak.version>2.1.0</gravitee-resource-oauth2-provider-keycloak.version>
+        <gravitee-resource-ai-model-text-classification.version>2.2.0</gravitee-resource-ai-model-text-classification.version>
         <gravitee-service-geoip.version>3.0.0</gravitee-service-geoip.version>
         <gravitee-inference-service.version>1.3.4</gravitee-inference-service.version>
         <gravitee-secretprovider-kubernetes.version>2.0.0</gravitee-secretprovider-kubernetes.version>
