@@ -1,23 +1,39 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
 {
-  "name": "Java 21 Codespace",
-  // Use a general-purpose Linux base image, e.g., the 'universal' image
-    "image": "mcr.microsoft.com/devcontainers/java:1-21-bullseye",
-
-  // Add the Java feature to install JDK 21
-  "features": {
-    "ghcr.io/devcontainers/features/java:1": {
-      "version": "21",
-      "installMaven": "true"
-    },
-    "ghcr.io/eitsupi/devcontainer-features/go-task:1": {
-      "version": "1.0.4"
-    },
-    "mounts": [
-      {
-        "source": "m2",
-        "target": "/home/vscode/.m2",
-        "type": "volume"
-      }
-    ]
-  }
+	"name": "Gravitee APIM DEV Build container",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/java:3-21-bookworm",
+	"features": {
+		"ghcr.io/devcontainers/features/java:1": {
+			"version": "none",
+			"installMaven": "true",
+			"installGradle": "false"
+		},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts",
+			"installNvm": true,
+			"installYarn": true
+		},
+		"ghcr.io/eitsupi/devcontainer-features/go-task:1": {
+			"version": "latest"
+		},
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "3.11"
+		},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+	},
+	"mounts": [
+		"source=${env:HOME}${env:USERPROFILE}/.m2,target=/home/vscode/.m2,type=bind",
+		"source=${env:HOME}${env:USERPROFILE}/.cache/node,target=/home/vscode/.cache/node,type=bind"
+	],
+	"forwardPorts": [
+		5455,
+		5601,
+		8082,
+		8084,
+		8083,
+		8085,
+		9090,
+		9200
+	]
 }
