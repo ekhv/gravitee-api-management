@@ -9,6 +9,9 @@
       "version": "21",
       "installMaven": "true"
     },
+    "ghcr.io/eitsupi/devcontainer-features/go-task:1": {
+      "version": "1.0.4"
+    },
     "mounts": [
       {
         "source": "m2",
