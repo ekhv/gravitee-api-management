@@ -1,0 +1,29 @@
+@use '@angular/material' as mat;
+@use '@gravitee/ui-particles-angular' as gio;
+@use '../../../../scss/gio-layout' as gio-layout;
+
+$error-color: mat.m2-get-color-from-palette(gio.$mat-error-palette, default);
+
+:host {
+  @include gio-layout.gio-responsive-content-container;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  h1 {
+    margin: 0;
+  }
+}
+
+::ng-deep .delete-action {
+  button,
+  .mat-icon {
+    color: $error-color;
+  }
+}

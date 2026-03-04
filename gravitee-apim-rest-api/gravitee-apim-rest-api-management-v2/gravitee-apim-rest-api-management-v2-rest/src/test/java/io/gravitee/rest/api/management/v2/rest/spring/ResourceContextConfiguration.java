@@ -73,6 +73,7 @@ import io.gravitee.apim.core.api_product.use_case.CreateApiProductUseCase;
 import io.gravitee.apim.core.api_product.use_case.DeleteApiProductUseCase;
 import io.gravitee.apim.core.api_product.use_case.DeployApiProductUseCase;
 import io.gravitee.apim.core.api_product.use_case.GetApiProductsUseCase;
+import io.gravitee.apim.core.api_product.use_case.SearchApiProductsUseCase;
 import io.gravitee.apim.core.api_product.use_case.UpdateApiProductUseCase;
 import io.gravitee.apim.core.api_product.use_case.VerifyApiProductNameUseCase;
 import io.gravitee.apim.core.apim.service_provider.ApimProductInfo;
@@ -112,6 +113,7 @@ import io.gravitee.apim.core.json.JsonSchemaChecker;
 import io.gravitee.apim.core.license.crud_service.LicenseCrudService;
 import io.gravitee.apim.core.license.domain_service.GraviteeLicenseDomainService;
 import io.gravitee.apim.core.license.domain_service.LicenseDomainService;
+import io.gravitee.apim.core.logs_engine.domain_service.LogNamesPostProcessor;
 import io.gravitee.apim.core.member.domain_service.CRDMembersDomainService;
 import io.gravitee.apim.core.member.domain_service.ValidateCRDMembersDomainService;
 import io.gravitee.apim.core.membership.domain_service.ApplicationPrimaryOwnerDomainService;
@@ -187,6 +189,7 @@ import io.gravitee.apim.infra.domain_service.analytics_engine.definition.Analyti
 import io.gravitee.apim.infra.domain_service.application.ValidateApplicationSettingsDomainServiceImpl;
 import io.gravitee.apim.infra.domain_service.documentation.ValidatePageSourceDomainServiceImpl;
 import io.gravitee.apim.infra.domain_service.group.ValidateGroupCRDDomainServiceImpl;
+import io.gravitee.apim.infra.domain_service.logs_engine.LogNamesPostProcessorImpl;
 import io.gravitee.apim.infra.domain_service.permission.PermissionDomainServiceLegacyWrapper;
 import io.gravitee.apim.infra.domain_service.subscription.SubscriptionCRDSpecDomainServiceImpl;
 import io.gravitee.apim.infra.json.jackson.JacksonSpringConfiguration;
@@ -929,6 +932,12 @@ public class ResourceContextConfiguration {
 
     @Bean
     @Primary
+    public SearchApiProductsUseCase searchApiProductsUseCase() {
+        return mock(SearchApiProductsUseCase.class);
+    }
+
+    @Bean
+    @Primary
     public UpdateApiProductUseCase updateApiProductUseCase() {
         return mock(UpdateApiProductUseCase.class);
     }
@@ -1164,6 +1173,11 @@ public class ResourceContextConfiguration {
     @Bean
     public UserContextLoader userContextLoader() {
         return mock(UserContextLoader.class);
+    }
+
+    @Bean
+    public LogNamesPostProcessor logNamesPostProcessor() {
+        return new LogNamesPostProcessorImpl();
     }
 
     @Bean

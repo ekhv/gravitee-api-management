@@ -15,6 +15,8 @@
  */
 
 export * from './apiProduct';
+export * from './apiProductSearchQuery';
+export * from './apiProductSortByParam';
+export * from './apiProductsResponse';
 export * from './createApiProduct';
 export * from './updateApiProduct';
-export * from './apiProductsResponse';
