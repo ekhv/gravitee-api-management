@@ -26,7 +26,7 @@ env:
   APIM_MAPI_DISTRIBUTION_PATH: "gravitee-apim-rest-api/gravitee-apim-rest-api-standalone/gravitee-apim-rest-api-standalone-distribution/target/distribution"
 
 tasks:
-  build.quick:
+  build.backend:
     desc: "Build management-api & gateway quickly without running tests & validations steps"
     cmds:
       - mvn clean install -DskipTests -Dskip.validation $MAVEN_PROFILE -T 1C
@@ -56,7 +56,7 @@ tasks:
     dir: "gravitee-apim-console-webui"
     cmds:
       - yarn install
-      - yarn build
+      - yarn build:prod
 
 
   build.ui:
@@ -70,21 +70,6 @@ tasks:
       - task: build.quick
       - task: build.console-webui
       - task: build.portal-webui
-
-  docker-compose.up:
-    desc: "Start containers"
-    cmds:
-      - docker-compose --project-directory $DOCKER_COMPOSE_PATH up -d
-
-  docker-compose.stop:
-    desc: "Stop containers"
-    cmds:
-      - docker-compose --project-directory $DOCKER_COMPOSE_PATH down
-
-  docker-compose.logs:
-    desc: "Print containers logs"
-    cmds:
-      - docker-compose --project-directory $DOCKER_COMPOSE_PATH logs -f
 
   integration-test:
     desc: "Run all tests in gravitee-apim-integration-tests"
@@ -120,3 +105,4 @@ tasks:
       - mkdir -p $APIM_GW_DISTRIBUTION_PATH/plugins/ext/repository-jdbc $APIM_MAPI_DISTRIBUTION_PATH/plugins/ext/repository-jdbc
       - cp /tmp/postgresql-42.4.0.jar $APIM_GW_DISTRIBUTION_PATH/plugins/ext/repository-jdbc
       - cp /tmp/postgresql-42.4.0.jar $APIM_MAPI_DISTRIBUTION_PATH/plugins/ext/repository-jdbc
+
